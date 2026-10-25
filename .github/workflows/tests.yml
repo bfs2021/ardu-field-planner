@@ -26,6 +26,7 @@ jobs:
           python test_safe_transit.py
           python test_api_safe_transit.py
           python test_v24.py
+          python test_upload_turn_radius.py
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
