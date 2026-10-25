@@ -41,7 +41,7 @@ class LogBridge(private val ctx: Context, private val web: WebView) {
 
     companion object {
         // Automatic log reports (#12): Google Apps Script collector (collector/); same value in app.js.
-        private const val REPORT_LOG_URL = ""
+        private const val REPORT_LOG_URL = "https://script.google.com/macros/s/AKfycbwxYo69hWQ-Tz-eVs3KXMCZ8X78orolMPynScuKCtIKQ8x69kutMqLDoTwz20C_L2vb/exec"
         private val URL_STR = if (BuildConfig.FMP_SERVER_BASE.isEmpty()) REPORT_LOG_URL else BuildConfig.FMP_SERVER_BASE + "/api/log"   // self-host server wins when set
         private val AUTH = BuildConfig.FMP_SERVER_AUTH   // from android/server.properties; empty in the Play build
         private const val QUEUE_CAP = 40                   // max payloads kept on disk (newest wins)

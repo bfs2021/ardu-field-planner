@@ -118,7 +118,7 @@ const posts = [];
 for (const id of ["report-mail", "report-issue", "sync-box", "mav-log"]) REAL[id] = realEl();
 const sandbox2 = { ...sandbox, fetch: async (url, opt) => { posts.push({ url, opt }); return { ok: true }; } };
 sandbox2.window = sandbox2; sandbox2.globalThis = sandbox2; sandbox2.self = sandbox2;
-const src2 = src.replace('const REPORT_LOG_URL = "";', 'const REPORT_LOG_URL = "' + COLLECTOR + '";');
+const src2 = src.replace(/const REPORT_LOG_URL = "[^"]*";/, 'const REPORT_LOG_URL = "' + COLLECTOR + '";');
 check("test can set the collector URL", src2 !== src);
 vm.runInNewContext(src2, sandbox2, { filename: "app.js", timeout: 30000 });
 await REAL["mav-log"].listeners.click();

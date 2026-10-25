@@ -29,7 +29,7 @@
   const REPORT_REPO = "https://github.com/tecelskyyivan-alt/ardu-field-planner";
   // Automatic log reports (#12) go to a Google Apps Script web app (collector/); empty = off.
   // Same value in LogBridge.kt and ViewController.swift (test_collector.mjs checks).
-  const REPORT_LOG_URL = "";
+  const REPORT_LOG_URL = "https://script.google.com/macros/s/AKfycbwxYo69hWQ-Tz-eVs3KXMCZ8X78orolMPynScuKCtIKQ8x69kutMqLDoTwz20C_L2vb/exec";
 
   // ---- i18n (UA / EN) -------------------------------------------------------
   // Ukrainian is the SOURCE language; `window.FMP_TR` (i18n.js) maps each UA string
