@@ -40,7 +40,9 @@ class LogBridge(private val ctx: Context, private val web: WebView) {
     private val queueDir: File by lazy { File(ctx.filesDir, "logqueue").apply { mkdirs() } }
 
     companion object {
-        private val URL_STR = if (BuildConfig.FMP_SERVER_BASE.isEmpty()) "" else BuildConfig.FMP_SERVER_BASE + "/api/log"   // self-host: set your log endpoint to enable (empty = disabled)
+        // Automatic log reports (#12): Google Apps Script collector (collector/); same value in app.js.
+        private const val REPORT_LOG_URL = ""
+        private val URL_STR = if (BuildConfig.FMP_SERVER_BASE.isEmpty()) REPORT_LOG_URL else BuildConfig.FMP_SERVER_BASE + "/api/log"   // self-host server wins when set
         private val AUTH = BuildConfig.FMP_SERVER_AUTH   // from android/server.properties; empty in the Play build
         private const val QUEUE_CAP = 40                   // max payloads kept on disk (newest wins)
     }
@@ -86,7 +88,7 @@ class LogBridge(private val ctx: Context, private val web: WebView) {
             con.readTimeout = 10000
             con.doOutput = true
             con.setRequestProperty("Content-Type", "application/json")
-            con.setRequestProperty(
+            if (AUTH.isNotEmpty()) con.setRequestProperty(
                 "Authorization",
                 "Basic " + Base64.encodeToString(AUTH.toByteArray(), Base64.NO_WRAP)
             )

@@ -27,6 +27,9 @@
   // Bug reports without a server (#11): the operator sends them by mail or as a GitHub issue.
   const REPORT_EMAIL = "teselskyy@gmail.com";
   const REPORT_REPO = "https://github.com/tecelskyyivan-alt/ardu-field-planner";
+  // Automatic log reports (#12) go to a Google Apps Script web app (collector/); empty = off.
+  // Same value in LogBridge.kt and ViewController.swift (test_collector.mjs checks).
+  const REPORT_LOG_URL = "";
 
   // ---- i18n (UA / EN) -------------------------------------------------------
   // Ukrainian is the SOURCE language; `window.FMP_TR` (i18n.js) maps each UA string
@@ -5023,8 +5026,8 @@
       try { return !!window.AndroidLog && (!window.AndroidLog.available || !!window.AndroidLog.available()); }
       catch (e) { return false; }
     }
-    if (IS_IOS) return false;
-    return !STATIC_HOST;
+    if (IS_IOS) return !!REPORT_LOG_URL;
+    return !STATIC_HOST || !!REPORT_LOG_URL;
   }
   async function uploadLogToServer(text) {
     if (!logServerAvailable()) return false;
@@ -5054,10 +5057,14 @@
       });
     }
     try {
-      const r = await fetch(API_BASE + "/api/log", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload), credentials: "include",
-      });
+      // A static host has no /api/log: post to the collector. text/plain keeps it a simple
+      // request (no CORS preflight, which Apps Script doesn't answer).
+      const r = STATIC_HOST
+        ? await fetch(REPORT_LOG_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload) })
+        : await fetch(API_BASE + "/api/log", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload), credentials: "include",
+          });
       return r.ok;
     } catch (e) { return false; }
   }

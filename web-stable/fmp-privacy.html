@@ -20,8 +20,8 @@
      Розробник: Іван Тецельський, Україна. Контакт: <a href="mailto:tecelskyyivan@gmail.com">tecelskyyivan@gmail.com</a>.</p>
 
   <p><b>Коротко:</b> за замовчуванням застосунок працює офлайн і всі ваші дані лишаються на пристрої.
-     Дані залишають пристрій лише в трьох випадках, кожен з яких вмикаєте ви самі: завантаження карт,
-     надсилання діагностичного логу, і резервна копія на ваш сервер.</p>
+     Дані залишають пристрій у таких випадках: завантаження карт, діагностичний лог (у мобільному
+     застосунку — автоматично, коли сталася помилка), і резервна копія на ваш сервер.</p>
 
   <h2>1. Які дані обробляються</h2>
   <ul>
@@ -34,11 +34,13 @@
     <li><b>Дані карти</b> — коли є інтернет, координати видимої ділянки карти надсилаються постачальникам
         мап (Google, Esri, CARTO, OpenTopoMap) і сервісу висот (Open-Meteo), щоб завантажити тайли й
         рельєф. Офлайн — не надсилаються.</li>
-    <li><b>Діагностичний лог</b> — лише коли ви самі натискаєте «Лог для аналізу». Містить версію
+    <li><b>Діагностичний лог</b> — коли ви натискаєте «Лог для аналізу», а в мобільному застосунку ще й
+        автоматично, якщо під час роботи сталася помилка і є інтернет. Містить версію
         застосунку, знеособлений ідентифікатор пристрою, модель і розмір екрана, помилки та
         <b>статус</b> телеметрії (режим, фікс, супутники, батарея, номер точки маршруту).
-        <b>Координат — вашого місця, GPS дрона чи треку — лог не містить.</b> Надсилається на сервер
-        розробника й використовується лише для усунення несправностей.</li>
+        <b>Координат — вашого місця, GPS дрона чи треку — лог не містить.</b> Надсилається на Google
+        Drive розробника (через Google Apps Script; ідентифікатор пристрою там зберігається лише як хеш)
+        і використовується лише для усунення несправностей.</li>
     <li><b>Імпорт полів із фото</b> — якщо ви користуєтесь цією функцією, вибране вами зображення
         надсилається на сервер розробника для розпізнавання контурів. Останні запити тимчасово
         зберігаються на сервері для діагностики й видаляються за запитом.</li>
@@ -104,7 +106,9 @@
      <b>Backup</b> (Statistics tab, off by default), which uploads fields (with coordinates), flight
      summaries and settings over HTTPS to the server configured in the app. Map and elevation providers
      (Google, Esri, CARTO, OpenTopoMap, Open-Meteo) receive map-area coordinates only while you are
-     online. A <b>diagnostic log</b> is uploaded only when you tap “Log for analysis”; it contains the
+     online. A <b>diagnostic log</b> is uploaded when you tap “Log for analysis” and, in the mobile app,
+     automatically after an error while online, to the developer's Google Drive (via Google Apps Script;
+     the device id is stored only as a hash); it contains the
      app version, an anonymous device id, device model, errors and telemetry <b>status</b> — never
      coordinates. The optional <b>photo field import</b> uploads the image you pick for contour
      recognition. No accounts, no ads, no analytics SDKs, no data selling, no cross-app tracking.

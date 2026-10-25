@@ -112,5 +112,21 @@ check("issue URL fits (<= 7500)", issue.length > 0 && issue.length <= 7500);
 check("issue body has the report header", body.includes("версія:"));
 check("issue body has no coordinates", !/\d{1,3}\.\d{4,}/.test(body) && !body.includes("50.4501234"));
 
+// ---- with the collector configured (#12), «Лог» on the static site posts the log there
+const COLLECTOR = "https://script.google.com/macros/s/TEST/exec";
+const posts = [];
+for (const id of ["report-mail", "report-issue", "sync-box", "mav-log"]) REAL[id] = realEl();
+const sandbox2 = { ...sandbox, fetch: async (url, opt) => { posts.push({ url, opt }); return { ok: true }; } };
+sandbox2.window = sandbox2; sandbox2.globalThis = sandbox2; sandbox2.self = sandbox2;
+const src2 = src.replace('const REPORT_LOG_URL = "";', 'const REPORT_LOG_URL = "' + COLLECTOR + '";');
+check("test can set the collector URL", src2 !== src);
+vm.runInNewContext(src2, sandbox2, { filename: "app.js", timeout: 30000 });
+await REAL["mav-log"].listeners.click();
+const p = posts.find((x) => x.url === COLLECTOR);
+check("«Лог» posts to the collector", !!p);
+check("posted as text/plain (no CORS preflight)", !!p && p.opt.headers["Content-Type"] === "text/plain");
+let payload = {}; try { payload = JSON.parse(p.opt.body); } catch (e) {}
+check("payload carries the log and the version", typeof payload.log === "string" && payload.log.includes("діагностичний лог") && !!payload.version);
+
 console.log("\nRESULT: " + (failed ? failed + " FAILURE(S)" : "ALL CHECKS PASSED"));
 process.exit(failed ? 1 : 0);
