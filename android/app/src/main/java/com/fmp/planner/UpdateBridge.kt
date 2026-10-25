@@ -19,6 +19,8 @@ import java.net.URL
 
 /**
  * In-app self-update for the native APK, exposed as `window.AndroidUpdate`.
+ * With no server baked in (FMP_SERVER_BASE empty) the stable build reads the latest
+ * GitHub Release instead (#11); the beta build has no release channel and stays off.
  *
  * The APK can't auto-update like the PWA, so this lets the operator update from
  * inside: `check()` reads the server's version.json (native HTTP + basic-auth, no
@@ -37,26 +39,53 @@ class UpdateBridge(private val ctx: Context, private val web: WebView) {
     // version source + APK, so it never offers/installs the stable build by mistake.
     private val isBeta = ctx.packageName.endsWith(".beta")
     private fun versionUrl() = BASE + if (isBeta) "/beta-version.json" else "/version.json"
-    private fun apkUrl() = BASE + if (isBeta) "/downloads/FieldMissionPlanner-beta.apk"
-                                  else "/downloads/FieldMissionPlanner.apk"
+    private fun apkUrl() = if (BASE.isEmpty()) releaseApk
+                           else BASE + if (isBeta) "/downloads/FieldMissionPlanner-beta.apk"
+                                       else "/downloads/FieldMissionPlanner.apk"
+    // .apk asset of the latest GitHub Release, found by check(); never taken from JS.
+    @Volatile private var releaseApk = ""
 
     companion object {
         private val BASE = BuildConfig.FMP_SERVER_BASE     // self-host: set your update server (empty = self-update disabled)
         private val AUTH = BuildConfig.FMP_SERVER_AUTH      // self-host: "user:pass" for the endpoint basic-auth
         private fun authHeader() = "Basic " + Base64.encodeToString(AUTH.toByteArray(), Base64.NO_WRAP)
+        private const val RELEASES_API = "https://api.github.com/repos/tecelskyyivan-alt/ardu-field-planner/releases/latest"
+        private const val RELEASE_DL = "https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/download/"
+    }
+
+    /** Latest release: version from the tag ("v2.5.84" -> "2.5.84"), and its .apk asset. */
+    private fun checkRelease(): String {
+        if (isBeta) return ""
+        val con = URL(RELEASES_API).openConnection() as HttpURLConnection
+        con.setRequestProperty("Accept", "application/vnd.github+json")
+        con.connectTimeout = 8000
+        con.readTimeout = 8000
+        val j = JSONObject(con.inputStream.bufferedReader().use { it.readText() })
+        con.disconnect()
+        val assets = j.optJSONArray("assets")
+        var apk = ""
+        for (i in 0 until (assets?.length() ?: 0)) {
+            val u = assets!!.getJSONObject(i).optString("browser_download_url", "")
+            if (u.startsWith(RELEASE_DL) && u.endsWith(".apk")) { apk = u; break }
+        }
+        if (apk.isEmpty()) return ""   // a release without an APK is not an update
+        releaseApk = apk
+        return j.optString("tag_name", "").removePrefix("v")
     }
 
     @JavascriptInterface
     fun check(): String {
         Thread {
             val ver = try {
-                val con = URL(versionUrl()).openConnection() as HttpURLConnection
-                con.setRequestProperty("Authorization", authHeader())
-                con.connectTimeout = 8000
-                con.readTimeout = 8000
-                val txt = con.inputStream.bufferedReader().use { it.readText() }
-                con.disconnect()
-                JSONObject(txt).optString("version", "")
+                if (BASE.isEmpty()) checkRelease() else {
+                    val con = URL(versionUrl()).openConnection() as HttpURLConnection
+                    con.setRequestProperty("Authorization", authHeader())
+                    con.connectTimeout = 8000
+                    con.readTimeout = 8000
+                    val txt = con.inputStream.bufferedReader().use { it.readText() }
+                    con.disconnect()
+                    JSONObject(txt).optString("version", "")
+                }
             } catch (e: Exception) {
                 ""
             }
@@ -74,9 +103,11 @@ class UpdateBridge(private val ctx: Context, private val web: WebView) {
         // The download URL is built HERE, never taken from JS — so a compromised
         // page can only ever mean "fetch the official update", not choose the source.
         return try {
+            val url = apkUrl()
+            if (url.isEmpty()) return "{\"ok\":false,\"error\":\"no update source\"}"
             val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            val req = DownloadManager.Request(Uri.parse(apkUrl()))
-            req.addRequestHeader("Authorization", authHeader())
+            val req = DownloadManager.Request(Uri.parse(url))
+            if (BASE.isNotEmpty()) req.addRequestHeader("Authorization", authHeader())
             req.setMimeType("application/vnd.android.package-archive")
             req.setTitle((if (isBeta) "FMP BETA" else "Field Mission Planner") + " — оновлення")
             req.setDescription("Завантаження нової версії…")

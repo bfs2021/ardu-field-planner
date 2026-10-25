@@ -101,6 +101,12 @@ window.FMP_TR = {
     "Sequence: ARM → «Start mission» (AUTO). Stay ready to take over control.",
   "Кожен виліт логується офлайн і калібрує оцінку часу / заряду.": "Every flight is logged offline and calibrates the time / battery estimate.",
   "Лог для аналізу (надіслати/зберегти)": "Log for analysis (send/save)",
+  // Bug report without a server (#11) — added 2026-10-25.
+  "Надіслати поштою": "Send by email",
+  "Створити issue": "Open an issue",
+  "Лог ({0} рядків) скопійовано в буфер. Щоб надіслати розробнику — «Надіслати поштою» або «Створити issue».": "Log ({0} lines) copied to the clipboard. To send it to the developer, use «Send by email» or «Open an issue».",
+  "Відкрито лист розробнику. Повний лог — у буфері: встав його в лист, якщо треба.": "An email to the developer is open. The full log is in the clipboard: paste it into the email if needed.",
+  "Відкрито issue на GitHub. Він публічний — координати з лога вирізано. Повний лог — у буфері.": "A GitHub issue is open. It is public, so coordinates were removed from the log. The full log is in the clipboard.",
 
   // ---- baud options ----
   "115200 (USB-кабель)": "115200 (USB cable)",

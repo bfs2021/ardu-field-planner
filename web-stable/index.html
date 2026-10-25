@@ -270,6 +270,10 @@
         Продовжувати місію після заміни батареї</label>
       <p class="hint" id="resume-hint" style="display:none"></p>
       <button id="mav-log" class="ghost" style="margin-top:10px">Лог для аналізу (надіслати/зберегти)</button>
+      <div class="export-row">
+        <button id="report-mail" class="ghost">Надіслати поштою</button>
+        <button id="report-issue" class="ghost">Створити issue</button>
+      </div>
       <button id="export-flights" class="ghost">Журнал польотів (JSON)</button>
       <button id="export-flights-csv" class="ghost">Записи робіт (CSV)</button>
       <p class="hint">Кожен виліт логується офлайн і калібрує оцінку часу / заряду.</p>
@@ -278,6 +282,7 @@
       <div id="tab-stats" class="tab-pane">
         <div class="step">Статистика польотів</div>
         <div id="flight-stats"></div>
+      <div id="sync-box">
       <div class="step">
         Резервна копія (свій сервер)
         <p class="hint">Опційно: зберігає поля, журнал польотів і параметри на твоєму сервері,
@@ -289,6 +294,7 @@
         <button id="sync-now" class="ghost">Синхронізувати зараз</button>
         <button id="sync-restore" class="ghost">Відновити з сервера</button>
       </div>
+      </div><!-- /sync-box -->
       </div><!-- /tab-stats -->
 
       <div id="tab-app" class="tab-pane">

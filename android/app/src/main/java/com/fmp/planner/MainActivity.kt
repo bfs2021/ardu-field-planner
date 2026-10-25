@@ -134,7 +134,14 @@ class MainActivity : Activity() {
             override fun shouldOverrideUrlLoading(
                 view: WebView, request: WebResourceRequest
             ): Boolean {
-                return request.url.host != "appassets.androidplatform.net"   // true = block
+                val u = request.url
+                if (u.host == "appassets.androidplatform.net") return false
+                // Bug reports (#11): mail and the repo's new-issue page open in the system
+                // apps; the WebView itself still never leaves the app origin.
+                if (u.scheme == "mailto" || (u.scheme == "https" && u.host == "github.com" &&
+                        (u.path ?: "").startsWith("/tecelskyyivan-alt/ardu-field-planner/issues/new")))
+                    try { startActivity(Intent(Intent.ACTION_VIEW, u)) } catch (e: Exception) {}
+                return true   // true = block
             }
             // Once the offline app is up, hand it any .kml we were opened with.
             override fun onPageFinished(view: WebView?, url: String?) {

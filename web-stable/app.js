@@ -22,6 +22,11 @@
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
+  // shortcut: a *.github.io origin is treated as a static host (no /api/log, /api/sync); another static host needs VPS_BASE or this regex
+  const STATIC_HOST = /\.github\.io$/i.test(location.hostname);
+  // Bug reports without a server (#11): the operator sends them by mail or as a GitHub issue.
+  const REPORT_EMAIL = "teselskyy@gmail.com";
+  const REPORT_REPO = "https://github.com/tecelskyyivan-alt/ardu-field-planner";
 
   // ---- i18n (UA / EN) -------------------------------------------------------
   // Ukrainian is the SOURCE language; `window.FMP_TR` (i18n.js) maps each UA string
@@ -5011,7 +5016,18 @@
   // local server and is a different origin, so it uses a NATIVE upload bridge
   // (window.AndroidLog) — that avoids the WebView CORS preflight that basic-auth
   // would 401. Returns true on success.
+  // Is there anywhere to upload a log to? The APK asks its native bridge (an old bridge
+  // without available() predates #11 and always had a server); iOS ships without LOG_URL.
+  function logServerAvailable() {
+    if (IS_ANDROID) {
+      try { return !!window.AndroidLog && (!window.AndroidLog.available || !!window.AndroidLog.available()); }
+      catch (e) { return false; }
+    }
+    if (IS_IOS) return false;
+    return !STATIC_HOST;
+  }
   async function uploadLogToServer(text) {
+    if (!logServerAvailable()) return false;
     const payload = { device: deviceId(), version: APP_VERSION,
       platform: IS_ANDROID ? "apk" : IS_IOS ? "ios" : IS_QT ? "qt" : "web",
       ua: (navigator.userAgent || "").slice(0, 140), log: text };
@@ -5065,9 +5081,47 @@
       } catch (e) {}
     }
     const _aq = IS_ANDROID && !sent;   // Android queues offline logs and auto-resends
+    if (!logServerAvailable()) {
+      setMsg(tf(t("Лог ({0} рядків) скопійовано в буфер. Щоб надіслати розробнику — «Надіслати поштою» або «Створити issue»."), LOG.length), "ok");
+      return;
+    }
     setMsg(t("Лог (") + LOG.length + " рядків) " + (sent ? "надіслано на сервер для аналізу" : _aq ? "збережено — надішлеться автоматично, коли зʼявиться інтернет (скопійовано в буфер)" : t("на сервер не пішло — скопійовано в буфер")) + ".", sent ? "ok" : _aq ? "ok" : "error");
   }
   $("mav-log").addEventListener("click", exportLog);
+
+  // ---- bug report by mail / GitHub issue (#11) ------------------------------
+  // A mailto:/issue URL can't carry the whole log, so it gets the report header plus the
+  // newest events that fit; the full log goes to the clipboard to paste in.
+  function reportUrl(kind) {
+    const full = buildLogReport(), cut = full.indexOf("\n--- події");
+    const head = (cut < 0 ? full : full.slice(0, cut)).slice(0, 1500);
+    const title = "FMP " + APP_VERSION + " — звіт про помилку";
+    for (let n = 60; ; n = Math.floor(n / 2)) {
+      let body = head + "\n--- останні події (" + n + " з " + LOG.length + ") ---\n" + LOG.slice(LOG.length - n).join("\n");
+      let url;
+      if (kind === "mail") {
+        url = "mailto:" + REPORT_EMAIL + "?subject=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body);
+      } else {
+        // The issue is PUBLIC: cut anything that looks like a coordinate (security audit S3).
+        body = body.replace(/-?\d{1,3}\.\d{4,}/g, "×");
+        url = REPORT_REPO + "/issues/new?title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent("```\n" + body + "\n```");
+      }
+      if (url.length <= 7500 || n === 0) return url;   // GitHub rejects URLs past ~8 KB
+    }
+  }
+  async function sendReport(kind) {
+    appLog("report requested: " + kind);
+    try { await navigator.clipboard.writeText(buildLogReport()); } catch (e) {}
+    const url = reportUrl(kind);
+    // mailto: doesn't leave the page; the APK hands both kinds to the system (MainActivity).
+    if (kind === "mail" || IS_ANDROID) location.href = url;
+    else window.open(url, "_blank", "noopener");
+    setMsg(kind === "mail"
+      ? t("Відкрито лист розробнику. Повний лог — у буфері: встав його в лист, якщо треба.")
+      : t("Відкрито issue на GitHub. Він публічний — координати з лога вирізано. Повний лог — у буфері."), "ok");
+  }
+  if ($("report-mail")) $("report-mail").addEventListener("click", () => sendReport("mail"));
+  if ($("report-issue")) $("report-issue").addEventListener("click", () => sendReport("issue"));
 
   // ---- automatic remote log upload (native shells) --------------------------
   // On the native apps (iOS/Android), when a real problem happens during a field
@@ -5078,7 +5132,7 @@
   const AUTO_LOG_NATIVE = IS_IOS || IS_ANDROID;
   let _lastAutoUpload = 0, _autoUploading = false;
   async function maybeAutoUploadLog(force) {
-    if (!AUTO_LOG_NATIVE) return;
+    if (!AUTO_LOG_NATIVE || !logServerAvailable()) return;   // no server → the APK would only grow its offline queue
     if (!(navigator.onLine !== false)) return;         // skip when known-offline
     if (_autoUploading) return;
     let now = 0; try { now = Date.now(); } catch (e) {}
@@ -5205,7 +5259,8 @@
     try { return (window.AndroidSync && window.AndroidSync.available()) ? window.AndroidSync : null; }
     catch (e) { return null; }
   }
-  function syncConfigured() { return !!syncNative() || !((IS_ANDROID || IS_IOS) && !VPS_BASE); }
+  function syncConfigured() { return !!syncNative() || !((IS_ANDROID || IS_IOS || STATIC_HOST) && !VPS_BASE); }
+  if ($("sync-box") && !syncConfigured()) $("sync-box").style.display = "none";   // no server → nothing to back up to
   // One transport for both endpoints: native bridge when available, else same-origin fetch.
   // Returns the parsed response JSON or null (never throws).
   async function syncCall(path, payload) {

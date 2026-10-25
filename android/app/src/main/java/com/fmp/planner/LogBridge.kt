@@ -61,6 +61,10 @@ class LogBridge(private val ctx: Context, private val web: WebView) {
         } catch (e: Exception) { /* connectivity monitoring unavailable — flush still runs on each upload/start */ }
     }
 
+    /** Is a log server baked into this build? Without one the JS offers mail / GitHub issue (#11). */
+    @JavascriptInterface
+    fun available(): Boolean = URL_STR.isNotEmpty()
+
     @JavascriptInterface
     fun upload(json: String): String {
         io.execute {
