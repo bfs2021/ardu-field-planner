@@ -3234,6 +3234,12 @@
         res.turn_radius_set = pr.ok;
         appLog("round-turn: WP_RADIUS_M " + trm + "m -> " + (pr.ok ? "ok" : "FAILED"));
       }
+      // GPS-denied mode: the operator's home becomes the EKF origin on the FC, so the
+      // companion takes it from there (vio_onboard --origin fc) — nothing to type.
+      if (p && p.vio_home && !isInav) {
+        res.origin = await _mavLink.setOrigin(p.vio_home.lat, p.vio_home.lng, p.vio_home.alt || 0);
+        appLog("vio: origin -> " + (res.origin.ok ? "ok" : "FAILED " + (res.origin.error || "")));
+      }
       // Fixed-wing arc-turn params (analog of the copter WP_RADIUS_M). MAVLink
       // param-set only → ArduPilot. INAV is transmit-only: it flies the arc geometry
       // natively, but nav_fw_wp_turn_smoothing must be set OFF once on the board.
@@ -4731,6 +4737,7 @@
         // #12p3: opt-in geofence outcome (undefined when the checkbox was off/not applicable)
         fence: r.fence && { ok: r.fence.ok, count: r.fence.count, exclusions: r.fence.exclusions,
                             error: r.fence.error, homeOutside: r.fence.homeOutside, warning: r.fence.warning } }));
+      if (r && r.origin) { vioOriginResult = r.origin; vioRender(); }
       if (r && r.ok) {
         scheduleSaveField();    // uploading a mission → make sure the contour is saved
         promoteFieldOnUpload(); // + промоут контуру в постійний named-record (UPSERT)
@@ -5539,13 +5546,49 @@
   const VIO = window.VIO_MODE;
   const VIO_KEY = "fmp_vio_home";
   let vioHome = null, vioHomeMarker = null, vioLine = null;
+  let vioOriginResult = null;     // the last upload's origin write: {ok} / {ok:false, held}
   try { vioHome = JSON.parse(localStorage.getItem(VIO_KEY) || "null"); } catch (e) { vioHome = null; }
+  // Home per field: the operator sets it once for a field, it comes back with the field.
+  const VIO_HOMES = "fmp_vio_homes";
+  let vioLastField = null;
+  function vioHomes() { try { return JSON.parse(localStorage.getItem(VIO_HOMES) || "{}"); } catch (e) { return {}; } }
+  function vioFieldSwitch() {
+    if (currentFieldName === vioLastField) return;
+    vioLastField = currentFieldName;
+    const h = currentFieldName ? vioHomes()[currentFieldName] : null;
+    if (h && h.lat != null) {
+      vioHome = h; vioOriginResult = null;
+      try { localStorage.setItem(VIO_KEY, JSON.stringify(vioHome)); } catch (e) {}
+      if ($("vio-home")) $("vio-home").value = vioHome.lat.toFixed(7) + ", " + vioHome.lng.toFixed(7);
+      appLog("vio: home restored for the field");
+    }
+  }
   function vioOn() { return !!($("vio-mode") && $("vio-mode").checked); }
   // The home the upload uses in VIO mode (null = the normal GPS / FC home chain).
-  function vioHomeForUpload() { return (vioOn() && vioHome) ? { lat: vioHome.lat, lng: vioHome.lng } : null; }
+  function vioHomeForUpload() { return (vioOn() && vioHome) ? { lat: vioHome.lat, lng: vioHome.lng, alt: vioHome.alt || 0 } : null; }
   function vioSetHome(ll, why) {
-    vioHome = { lat: +ll.lat, lng: +ll.lng };
+    vioHome = { lat: +ll.lat, lng: +ll.lng, alt: 0 };
+    vioOriginResult = null;          // a moved home has not been written yet
+    // Ground elevation for the origin's altitude (AMSL). Best effort: offline it stays 0,
+    // which shifts only the absolute altitude the FC reports, not the navigation.
+    const want = vioHome;
+    fetch("https://api.open-meteo.com/v1/elevation?latitude=" + want.lat.toFixed(6) + "&longitude=" + want.lng.toFixed(6))
+      .then((r) => r.json()).then((j) => {
+        const e = j && j.elevation && j.elevation[0];
+        if (vioHome === want && e != null) {
+          vioHome.alt = e;
+          try { localStorage.setItem(VIO_KEY, JSON.stringify(vioHome)); } catch (err) {}
+          if (currentFieldName) {
+            const all = vioHomes(); all[currentFieldName] = vioHome;
+            try { localStorage.setItem(VIO_HOMES, JSON.stringify(all)); } catch (err) {}
+          }
+        }
+      }).catch(() => {});
     try { localStorage.setItem(VIO_KEY, JSON.stringify(vioHome)); } catch (e) {}
+    if (currentFieldName) {
+      const all = vioHomes(); all[currentFieldName] = vioHome;
+      try { localStorage.setItem(VIO_HOMES, JSON.stringify(all)); } catch (e) {}
+    }
     if ($("vio-home")) $("vio-home").value = vioHome.lat.toFixed(7) + ", " + vioHome.lng.toFixed(7);
     appLog("vio: home set (" + why + ")");     // OPSEC: no coordinates in the log
     vioRender();
@@ -5566,6 +5609,7 @@
   function vioRender() {
     const panel = $("vio-panel");
     if (panel) panel.style.display = vioOn() ? "" : "none";
+    vioFieldSwitch();
     if (typeof _mavLink !== "undefined" && _mavLink) _mavLink.origin_watch = vioOn();
     if (!vioOn() || !vioHome) {
       vioClearMap();
@@ -5601,6 +5645,10 @@
       lines.push(t("Поле ще не задано."));
       if (vioLine) { map.removeLayer(vioLine); vioLine = null; }
     }
+    if (s && s.mag_ok != null) {
+      lines.push(s.mag_ok ? "✅ " + t("Компас здоровий.")
+        : "⚠️ " + t("Компас нездоровий — без GPS курс лише з нього: калібрування (А3) до зльоту."));
+    }
     if (hdg != null) {
       let nose = t("Ніс дрона: ") + Math.round(hdg) + "° (" + VIO.compass8(hdg) + ")";
       if (fieldBrg != null) {
@@ -5626,6 +5674,14 @@
         (r.reach === 0 ? t("недосяжно навіть 100 м") : (r.beyond ? t("понад виміряне") : Math.round(r.reach) + t(" м"))) +
         (ok ? "" : t(" — маршрут довший, точність не гарантована.")));
     }
+    if (vioOriginResult) {
+      const o = vioOriginResult;
+      if (o.ok) lines.push("✅ " + t("Дім записано у FC як origin — Pi візьме його сам."));
+      else if (o.held) lines.push("⚠️ " + t("FC уже тримає інший origin за ") +
+        Math.round(VIO.haversineM(vioHome.lat, vioHome.lng, o.held[0], o.held[1])) +
+        t(" м — перезавантаж FC на точці старту й залий місію ще раз."));
+      else lines.push("⚠️ " + t("Origin у FC не записано: ") + (o.error || ""));
+    }
     if (s && s.origin_lat != null) {
       const d = VIO.haversineM(vioHome.lat, vioHome.lng, s.origin_lat, s.origin_lon);
       lines.push((d <= VIO.ORIGIN_TOL_M ? "✅ " : "⚠️ ") + t("Origin на FC: ") + Math.round(d) + t(" м від дому") +
@@ -5646,12 +5702,6 @@
   if ($("vio-set-home")) $("vio-set-home").addEventListener("click", () => {
     setMsg(t("Клікни на мапі точку старту дрона."), null);
     map.once("click", (e) => { vioSetHome(e.latlng, "map"); setMsg(t("Дім поставлено."), "ok"); });
-  });
-  if ($("vio-copy-origin")) $("vio-copy-origin").addEventListener("click", async () => {
-    if (!vioHome) { setMsg(t("Дім не поставлено."), "error"); return; }
-    const txt = VIO.originArgs(vioHome);
-    try { await navigator.clipboard.writeText(txt); setMsg(t("Скопійовано: два рядки для vio.args."), "ok"); }
-    catch (e) { window.prompt(t("Скопіюй у vio.args:"), txt.replace("\n", " ")); }
   });
   // Its own key, not collectParams(): those travel to the route engine.
   const VIO_CFG = "fmp_vio_cfg";

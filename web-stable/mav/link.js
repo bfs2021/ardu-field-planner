@@ -41,7 +41,8 @@
   // frames in one USB read), it's buffered briefly instead of dropped — otherwise
   // a mission upload over a real serial/RF link can stall ("can't upload").
   const HANDSHAKE = new Set(["MISSION_REQUEST", "MISSION_REQUEST_INT", "MISSION_ACK",
-    "MISSION_COUNT", "MISSION_ITEM", "MISSION_ITEM_INT", "COMMAND_ACK", "PARAM_VALUE"]);
+    "MISSION_COUNT", "MISSION_ITEM", "MISSION_ITEM_INT", "COMMAND_ACK", "PARAM_VALUE",
+    "GPS_GLOBAL_ORIGIN"]);
 
   const ACM_MODES = { STABILIZE: 0, ALT_HOLD: 2, AUTO: 3, GUIDED: 4, LOITER: 5, RTL: 6, LAND: 9, BRAKE: 17, SMART_RTL: 21 };
   const ACM_REV = Object.fromEntries(Object.entries(ACM_MODES).map(([k, v]) => [v, k]));
@@ -373,6 +374,11 @@
       } else if (m.name === "SYS_STATUS") {
         tl.battery_v = f.voltage_battery !== 65535 ? Math.round(f.voltage_battery / 10) / 100 : null;
         tl.battery_pct = f.battery_remaining !== -1 ? f.battery_remaining : null;
+        // Compass health (MAV_SYS_STATUS_SENSOR_3D_MAG = 4): without GPS the heading is the
+        // compass alone, so the GPS-denied panel shows it. null = no compass reported.
+        const MAG = 4;
+        tl.mag_ok = (f.onboard_control_sensors_present & MAG)
+          ? !!(f.onboard_control_sensors_health & MAG) : null;
       } else if (m.name === "HOME_POSITION") {
         tl.home_lat = f.latitude / 1e7; tl.home_lon = f.longitude / 1e7;
       } else if (m.name === "GPS_GLOBAL_ORIGIN") {
@@ -767,6 +773,32 @@
           return { ok: false, error: this._rejectCommand(ack.fields.result) };
         }
         return { ok: false, error: "Команда без відповіді (таймаут)." };
+      });
+    }
+
+    // GPS-denied mode: write the operator's home as the EKF origin, then read the FC's
+    // origin back. ArduPilot takes SET_GPS_GLOBAL_ORIGIN only while it holds none (EKF3:
+    // the first one wins), so the read-back is the verdict — {ok:true}, or {ok:false,
+    // held:[lat,lon]} for an FC that took another origin earlier (it keeps it to reboot).
+    async setOrigin(lat, lon, altM) {
+      if (!this._t) return { ok: false, error: "Немає звʼязку." };
+      const latE7 = Math.round(lat * 1e7), lonE7 = Math.round(lon * 1e7);
+      return this._withBusy(async () => {
+        const { ts, tc } = this._targets();
+        this._send("SET_GPS_GLOBAL_ORIGIN", { latitude: latE7, longitude: lonE7,
+          altitude: Math.round((altM || 0) * 1000), target_system: ts, time_usec: 0 });
+        for (let i = 0; i < 3; i++) {
+          this._send("COMMAND_LONG", { target_system: ts, target_component: tc,
+            command: CMD_REQUEST_MESSAGE, confirmation: 0, param1: MSG_GPS_GLOBAL_ORIGIN,
+            param2: 0, param3: 0, param4: 0, param5: 0, param6: 0, param7: 0 });
+          const m = await this._recv(["GPS_GLOBAL_ORIGIN"], 1500);
+          if (!m) continue;
+          this._tlm.origin_lat = m.fields.latitude / 1e7; this._tlm.origin_lon = m.fields.longitude / 1e7;
+          if (Math.abs(m.fields.latitude - latE7) <= 2 && Math.abs(m.fields.longitude - lonE7) <= 2) return { ok: true };
+          return { ok: false, held: [m.fields.latitude / 1e7, m.fields.longitude / 1e7],
+                   error: "FC уже тримає інший origin." };
+        }
+        return { ok: false, error: "FC не повідомив origin." };
       });
     }
 

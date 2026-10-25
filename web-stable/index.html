@@ -120,9 +120,8 @@
         Без GPS (VIO): дім — точка на мапі
       </label>
       <div id="vio-panel" style="display:none">
-        <p class="hint">Без GPS дрон знає, де він, лише відносно точки старту, яку компаньйон
-          задає як origin EKF (<code>vio_onboard --origin</code>), а куди дивиться — з компаса.
-          Постав дім точно там, де дрон стоятиме на старті.</p>
+        <p class="hint">Постав дім точно там, де дрон стоятиме на старті. При заливці місії FMP
+          запише його у FC як точку відліку (origin) — далі Pi і FC беруть її самі; курс дає компас.</p>
         <div class="row">
           <button id="vio-set-home" type="button">Поставити дім на мапі</button>
           <input id="vio-home" type="text" placeholder="49.5275000, 24.0040000" />
@@ -135,7 +134,6 @@
           mount_yaw виміряно (rig.json)
         </label>
         <div id="vio-info" class="hint"></div>
-        <button id="vio-copy-origin" type="button">Копіювати --origin для vio.args</button>
       </div>
 
       <div class="step">
