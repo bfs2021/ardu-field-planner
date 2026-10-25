@@ -673,4 +673,11 @@ Object.assign(window.FMP_TR, {
   "Дім поставлено.": "Home set.",
   "Скопійовано: два рядки для vio.args.": "Copied: two lines for vio.args.",
   "Скопіюй у vio.args:": "Copy into vio.args:",
+  "Дім записано у FC як origin — Pi візьме його сам.": "Home written to the FC as the origin — the Pi takes it from there.",
+  "FC уже тримає інший origin за ": "The FC already holds another origin ",
+  " м — перезавантаж FC на точці старту й залий місію ще раз.": " m away — reboot the FC at the take-off point and upload the mission again.",
+  "Origin у FC не записано: ": "Origin not written to the FC: ",
+  "Компас здоровий.": "Compass healthy.",
+  "Компас нездоровий — без GPS курс лише з нього: калібрування (А3) до зльоту.": "Compass unhealthy — without GPS it is the only heading: calibrate it (A3) before take-off.",
+  "Постав дім точно там, де дрон стоятиме на старті. При заливці місії FMP запише його у FC як точку відліку (origin) — далі Pi і FC беруть її самі; курс дає компас.": "Put home exactly where the drone will stand at take-off. On upload FMP writes it to the FC as the origin — the Pi and the FC take it from there; heading comes from the compass.",
 });

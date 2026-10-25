@@ -18,6 +18,8 @@ class FakeLink:
     def status(self): return self.st
     def upload_mission(self, items): self.items = items; return {"ok": True, "count": len(items)}
     def set_param(self, name, value): return {"ok": True}
+    def set_origin(self, lat, lon, alt_m=0.0):
+        self.origin = (lat, lon); return {"ok": True}
 
 def upload(st, **params):
     ml.LINK = FakeLink(st)
@@ -32,10 +34,14 @@ items, r = upload({}, vio_home=pad)
 check("vio_home -> home item on the pad", r["ok"] and abs(items[0]["lat"] - 49.5275) < 1e-9
       and abs(items[0]["lon"] - 24.004) < 1e-9)
 check("vio_home -> takeoff on the pad too", abs(items[1]["lat"] - 49.5275) < 1e-9)
+check("vio_home -> written to the FC as the EKF origin",
+      r.get("origin", {}).get("ok") is True and ml.LINK.origin == (49.5275, 24.004))
 items, _ = upload({"home_lat": 49.7, "home_lon": 24.2}, vio_home=pad)
 check("vio_home wins over an FC HOME_POSITION", abs(items[0]["lat"] - 49.5275) < 1e-9)
-items, _ = upload({"home_lat": 49.7, "home_lon": 24.2})
+items, r = upload({"home_lat": 49.7, "home_lon": 24.2})
 check("no vio_home -> the FC home, as before", abs(items[0]["lat"] - 49.7) < 1e-9)
+check("no vio_home -> no origin written (GPS mode keeps EKF3's own)",
+      "origin" not in r and not hasattr(ml.LINK, "origin"))
 
 print("\nRESULT: " + (f"{failed} FAILURE(S)" if failed else "ALL CHECKS PASSED"))
 sys.exit(1 if failed else 0)

@@ -477,6 +477,12 @@ class Api:
             # RTL; дефолт 2 тримає останній курс — оператор не бачить перешкод).
             py = LINK.set_param("WP_YAW_BEHAVIOR", 1)
             res["yaw_forward_set"] = py.get("ok")
+            # GPS-denied mode: the operator's home becomes the EKF origin on the FC, so the
+            # companion takes it from there (vio_onboard --origin fc) — nothing to type.
+            vh = (params or {}).get("vio_home")
+            if vh:
+                res["origin"] = LINK.set_origin(float(vh["lat"]), float(vh["lng"]),
+                                                float(vh.get("alt") or 0.0))
             # Auto read-back verify unless the caller opts out.
             if (params or {}).get("verify", True):
                 v = LINK.verify_mission(items)
