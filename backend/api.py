@@ -404,7 +404,7 @@ class Api:
         except Exception as exc:
             return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
-    def _mission_items(self):
+    def _mission_items(self, home_override=None):
         """Build MAVLink mission items from the last-built route (or None).
 
         HOME = where the drone will arm: when connected, use ArduPilot's own home
@@ -416,6 +416,12 @@ class Api:
         from .mavlink_link import build_mission_items, LINK
         s = self._state
         home = s["home"]
+        if home_override:
+            # GPS-denied: the operator's take-off point is home (no fix to take it from).
+            return build_mission_items(
+                (float(home_override["lat"]), float(home_override["lng"]), 0.0),
+                s["takeoff_alt"], s["waypoints"], s["wp_alt"], s.get("rtl", True),
+                speed=s.get("speed", 0))
         try:
             st = LINK.status()
             if st.get("home_lat") is not None and st.get("home_lon") is not None:
@@ -432,7 +438,7 @@ class Api:
     def mav_upload_mission(self, params=None):
         """Upload the last-built mission, then read it back to CONFIRM it landed
         on the vehicle (so the user knows the upload truly succeeded)."""
-        items = self._mission_items()
+        items = self._mission_items((params or {}).get("vio_home"))
         if items is None:
             return {"ok": False, "error": "Спочатку побудуй маршрут."}
         try:

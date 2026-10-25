@@ -21,6 +21,7 @@
   const CMD_DO_SET_MODE = 176, CMD_MISSION_START = 300, CMD_ARM_DISARM = 400;
   const CMD_PAUSE_CONTINUE = 193;   // MAV_CMD_DO_PAUSE_CONTINUE (Copter: hold on track, stay in AUTO)
   const CMD_GET_HOME = 410, CMD_DO_SET_MISSION_CURRENT = 224;
+  const CMD_REQUEST_MESSAGE = 512, MSG_GPS_GLOBAL_ORIGIN = 49;   // GPS-denied: read the EKF origin
   const CMD_SET_MESSAGE_INTERVAL = 511;   // MAV_CMD_SET_MESSAGE_INTERVAL (a COMMAND_LONG)
   const GCS_SYS = 255, GCS_COMP = 190;
 
@@ -154,6 +155,7 @@
       alt_rel: null, sats: null, fix_type: null, groundspeed: null, heading: null,
       battery_v: null, battery_pct: null, wp_current: null, wp_total: null, last_text: null,
       home_lat: null, home_lon: null,
+      origin_lat: null, origin_lon: null,   // EKF origin (GPS_GLOBAL_ORIGIN) — the GPS-denied frame
       // GPS quality + velocity — for the anti-jamming / anti-spoofing guard.
       hdop: null, h_acc: null, gps_vel: null, vx: null, vy: null, vz: null };
   }
@@ -336,6 +338,14 @@
             this._lastHomeReq = Date.now();
             try { this._send("COMMAND_LONG", { target_system: m.sysid, target_component: m.compid, command: CMD_GET_HOME, confirmation: 0, param1: 0, param2: 0, param3: 0, param4: 0, param5: 0, param6: 0, param7: 0 }); } catch (e) {}
           }
+          // Same for the EKF origin, once a GPS-denied panel asked for it (origin_watch):
+          // without GPS it is the only thing that ties the local frame to the map, and
+          // ArduPilot sends it only on request.
+          if (this.origin_watch && tl.origin_lat == null && !this._busy &&
+              Date.now() - (this._lastOriginReq || 0) > 8000) {
+            this._lastOriginReq = Date.now();
+            try { this._send("COMMAND_LONG", { target_system: m.sysid, target_component: m.compid, command: CMD_REQUEST_MESSAGE, confirmation: 0, param1: MSG_GPS_GLOBAL_ORIGIN, param2: 0, param3: 0, param4: 0, param5: 0, param6: 0, param7: 0 }); } catch (e) {}
+          }
         }
         // Ask for telemetry on ANY heartbeat — targeting the locked autopilot if known,
         // else the default sys1 — so a bridge that only relays once a GCS requests data
@@ -365,6 +375,8 @@
         tl.battery_pct = f.battery_remaining !== -1 ? f.battery_remaining : null;
       } else if (m.name === "HOME_POSITION") {
         tl.home_lat = f.latitude / 1e7; tl.home_lon = f.longitude / 1e7;
+      } else if (m.name === "GPS_GLOBAL_ORIGIN") {
+        tl.origin_lat = f.latitude / 1e7; tl.origin_lon = f.longitude / 1e7;
       } else if (m.name === "MISSION_CURRENT") {
         tl.wp_current = f.seq;
         // The newer MISSION_CURRENT carries the total too — use it so «wp X/Y» is
