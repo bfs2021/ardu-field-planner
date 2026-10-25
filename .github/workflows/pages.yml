@@ -1,0 +1,35 @@
+name: pages
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ "web-stable/**", ".github/workflows/pages.yml" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # New cache name per deploy, otherwise the service worker keeps serving the old app.js
+      - name: Stamp service-worker cache
+        run: |
+          sed -i -E "s/(const SHELL_CACHE = \"[^\"]+)\"/\1-${GITHUB_SHA::7}\"/" web-stable/sw.js
+          grep -q "SHELL_CACHE = \".*-${GITHUB_SHA::7}\"" web-stable/sw.js
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web-stable
+      - id: deployment
+        uses: actions/deploy-pages@v4
