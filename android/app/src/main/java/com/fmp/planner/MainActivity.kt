@@ -167,23 +167,26 @@ class MainActivity : Activity() {
         if (BuildConfig.SELF_UPDATE)
             webView.addJavascriptInterface(UpdateBridge(this, webView), "AndroidUpdate")
 
-        setContentView(
+        // The WebView sits in a plain container: a WebView ignores its own padding (its page
+        // still spans the full window), so the system-bar insets below pad the container.
+        val root = android.widget.FrameLayout(this)
+        root.addView(
             webView,
             ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
-        // Android 15/16 (targetSdk 35) forces EDGE-TO-EDGE: the WebView would otherwise
-        // draw UNDER the status + navigation bars, so the app's top controls overlap the
-        // status bar. Pad the WebView by the system-bar (+ display-cutout) insets so the
+        setContentView(root)
+        // Android 15/16 forces EDGE-TO-EDGE: the WebView would otherwise draw UNDER the
+        // status + navigation bars, so the app's top controls overlap the status bar.
+        // Pad the container by the system-bar (+ display-cutout) insets so the
         // content stays within the safe area; the dark window background fills the bar
         // strips (no white flash).
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFF0A0F14.toInt()))
-        // Primary fix is the theme's android:windowOptOutEdgeToEdgeEnforcement (res/values/
-        // themes.xml) — the official opt-out for targetSdk 35. This inset listener is a
-        // belt-and-suspenders fallback: if edge-to-edge is still active it pads the WebView;
-        // if the theme opted out, the insets are already 0 here so it's a no-op.
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(webView) { v, insets ->
+        // At targetSdk 36 Android 16 ignores the theme's windowOptOutEdgeToEdgeEnforcement,
+        // so this listener is the real fix there; where the opt-out still holds, the
+        // insets arrive as 0 and it is a no-op.
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val i = insets.getInsets(
                 androidx.core.view.WindowInsetsCompat.Type.systemBars()
                     or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
@@ -192,7 +195,7 @@ class MainActivity : Activity() {
         }
         // Force a dispatch NOW — the listener is attached after the first inset pass, so
         // without this the padding wouldn't apply until some later relayout (or never).
-        androidx.core.view.ViewCompat.requestApplyInsets(webView)
+        androidx.core.view.ViewCompat.requestApplyInsets(root)
         pendingKml = readKmlFromIntent(intent)          // launched via "Open with" / share a .kml?
         registerBackHandler()
         webView.loadUrl("https://appassets.androidplatform.net/")
