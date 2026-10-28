@@ -313,7 +313,11 @@ button.active { background: var(--accent-fill); color: #fff; border-color: var(-
      means scrolling a long pane back to the top first. The right padding keeps the
      last tab (and the title/version line) clear of the floating ✕. */
   .tabs {
-    position: sticky; top: calc(-1 * max(20px, env(safe-area-inset-top)));
+    /* Sticks right below the status bar: the offset is measured from the panel's content
+       edge, so cancel its top padding and add the inset back (0 without a status bar). */
+    position: sticky; top: calc(env(safe-area-inset-top) - max(20px, env(safe-area-inset-top)));
+    /* …and paint the strip under the status bar, or scrolled text shows through it. */
+    box-shadow: 0 calc(-1 * env(safe-area-inset-top)) 0 var(--panel);
     z-index: 2; margin: 0 -18px 18px; padding: 10px 18px 10px 18px;
     background: var(--panel); border-bottom: 1px solid var(--line-soft);
   }
