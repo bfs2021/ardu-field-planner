@@ -107,6 +107,8 @@ const src = fs.readFileSync(new URL("./web-stable/app.js", import.meta.url), "ut
 vm.runInNewContext(src, sandbox, { filename: "app.js", timeout: 30000 });
 
 check("sync block hidden on a static host", REAL["sync-box"].style.display === "none");
+// Pages has no /downloads/ (it lived on the VPS): every APK link must point at GitHub Releases.
+check("no download link into the dead /downloads/ path", !/href="downloads\//.test(htmlSrc));
 
 await REAL["report-mail"].listeners.click();
 const mail = opened.pop() || "";

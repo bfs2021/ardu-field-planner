@@ -136,10 +136,12 @@ class MainActivity : Activity() {
             ): Boolean {
                 val u = request.url
                 if (u.host == "appassets.androidplatform.net") return false
-                // Bug reports (#11): mail and the repo's new-issue page open in the system
-                // apps; the WebView itself still never leaves the app origin.
+                // Bug reports (#11) and the APK download: mail, the repo's new-issue page and its
+                // releases open in the system apps; the WebView itself never leaves the app origin.
+                val repoPath = u.path ?: ""
                 if (u.scheme == "mailto" || (u.scheme == "https" && u.host == "github.com" &&
-                        (u.path ?: "").startsWith("/tecelskyyivan-alt/ardu-field-planner/issues/new")))
+                        (repoPath.startsWith("/tecelskyyivan-alt/ardu-field-planner/issues/new") ||
+                         repoPath.startsWith("/tecelskyyivan-alt/ardu-field-planner/releases/"))))
                     try { startActivity(Intent(Intent.ACTION_VIEW, u)) } catch (e: Exception) {}
                 return true   // true = block
             }
