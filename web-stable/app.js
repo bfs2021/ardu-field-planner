@@ -5109,35 +5109,65 @@
   $("mav-log").addEventListener("click", exportLog);
 
   // ---- bug report by mail / GitHub issue (#11) ------------------------------
-  // A mailto:/issue URL can't carry the whole log, so it gets the report header plus the
+  // A mailto: URL can't carry the whole log, so the mail gets the report header plus the
   // newest events that fit; the full log goes to the clipboard to paste in.
-  function reportUrl(kind) {
+  function mailUrl() {
     const full = buildLogReport(), cut = full.indexOf("\n--- події");
     const head = (cut < 0 ? full : full.slice(0, cut)).slice(0, 1500);
     const title = "FMP " + APP_VERSION + " — звіт про помилку";
     for (let n = 60; ; n = Math.floor(n / 2)) {
-      let body = head + "\n--- останні події (" + n + " з " + LOG.length + ") ---\n" + LOG.slice(LOG.length - n).join("\n");
-      let url;
-      if (kind === "mail") {
-        url = "mailto:" + REPORT_EMAIL + "?subject=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body);
-      } else {
-        // The issue is PUBLIC: cut anything that looks like a coordinate (security audit S3).
-        body = body.replace(/-?\d{1,3}\.\d{4,}/g, "×");
-        url = REPORT_REPO + "/issues/new?title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent("```\n" + body + "\n```");
-      }
+      const body = head + "\n--- останні події (" + n + " з " + LOG.length + ") ---\n" + LOG.slice(LOG.length - n).join("\n");
+      const url = "mailto:" + REPORT_EMAIL + "?subject=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body);
+      if (url.length <= 7500 || n === 0) return url;
+    }
+  }
+  // The issue is PUBLIC, so it is built from an allowlist (#13): version, platform and the
+  // error lines with anything identifying cut out. The full log goes privately to the
+  // collector; the issue only names its report id.
+  function scrubPublic(line) {
+    return String(line)
+      .replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, "<url>")                  // incl. chrome-extension:// ids
+      .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "<email>")
+      .replace(/\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/gi, "<mac>")       // BLE / WiFi hardware address
+      .replace(/\b(?:[0-9a-f]{1,4}:){4,7}[0-9a-f]{1,4}\b|\b[0-9a-f]*::[0-9a-f:]+\b/gi, "<ip>")   // IPv6; HH:MM:SS has only 2 colons
+      .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, "<ip>")
+      .replace(/(?:\/(?:Users|home|storage|sdcard|data|private|var)\/|\b[A-Z]:\\)\S+/g, "<path>")
+      .replace(/-?\d{1,3}\.\d{4,}/g, "×")                                // coordinates (security audit S3)
+      .replace(/\b[0-9a-f]{12,}\b/gi, "<id>");                           // device / session ids
+  }
+  function issueUrl(reportId) {
+    const plat = IS_ANDROID ? "APK" : IS_IOS ? "iOS" : IS_QT ? "Qt-ПК" : "web";
+    const errs = LOG.filter((l) => /JS ERROR|PROMISE REJECT|CONSOLE\.ERROR|\[ЧЕРВОНЕ\]|FAIL/.test(l)).map(scrubPublic);
+    const head = "версія: " + APP_VERSION + " " + plat + "\nпомилок у лозі: " + errs.length + "\n" +
+      (reportId ? "ID звіту: " + reportId + " (повний лог — у розробника, приватно)" : "повний лог не надіслано (немає інтернету)");
+    const title = "FMP " + APP_VERSION + " — звіт про помилку";
+    for (let n = 30; ; n = Math.floor(n / 2)) {
+      const body = head + "\n--- помилки (останні " + Math.min(n, errs.length) + ") ---\n" + errs.slice(errs.length - n).join("\n");
+      const url = REPORT_REPO + "/issues/new?title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent("```\n" + body + "\n```");
       if (url.length <= 7500 || n === 0) return url;   // GitHub rejects URLs past ~8 KB
     }
   }
   async function sendReport(kind) {
     appLog("report requested: " + kind);
-    try { await navigator.clipboard.writeText(buildLogReport()); } catch (e) {}
-    const url = reportUrl(kind);
-    // mailto: doesn't leave the page; the APK hands both kinds to the system (MainActivity).
-    if (kind === "mail" || IS_ANDROID) location.href = url;
-    else window.open(url, "_blank", "noopener");
-    setMsg(kind === "mail"
-      ? t("Відкрито лист розробнику. Повний лог — у буфері: встав його в лист, якщо треба.")
-      : t("Відкрито issue на GitHub. Він публічний — координати з лога вирізано. Повний лог — у буфері."), "ok");
+    if (kind === "mail") {
+      try { await navigator.clipboard.writeText(buildLogReport()); } catch (e) {}
+      location.href = mailUrl();     // mailto: doesn't leave the page; the APK hands it to the system
+      setMsg(t("Відкрито лист розробнику. Повний лог — у буфері: встав його в лист, якщо треба."), "ok");
+      return;
+    }
+    // Open the tab now, inside the click: after the upload's await a browser would block the popup.
+    const win = IS_ANDROID ? null : window.open("about:blank", "_blank");
+    let reportId = "";
+    if (logServerAvailable()) {
+      const id = "r" + Date.now().toString(36);
+      const sent = await Promise.race([uploadLogToServer("report_id: " + id + "\n" + buildLogReport()),
+        new Promise((r) => setTimeout(() => r(false), 10000))]);
+      if (sent) reportId = id;
+    }
+    const url = issueUrl(reportId);
+    if (win) { try { win.opener = null; win.location.href = url; } catch (e) { window.open(url, "_blank", "noopener"); } }
+    else location.href = url;        // the APK hands the issue page to the system browser (MainActivity)
+    setMsg(t("Відкрито issue на GitHub. Він публічний: там лише версія й текст помилок, без особистих даних. Повний лог надіслано розробнику приватно — не вставляй його в issue."), "ok");
   }
   if ($("report-mail")) $("report-mail").addEventListener("click", () => sendReport("mail"));
   if ($("report-issue")) $("report-issue").addEventListener("click", () => sendReport("issue"));

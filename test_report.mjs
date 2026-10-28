@@ -56,13 +56,23 @@ const documentStub = new Proxy({}, {
 });
 
 let clipboard = "", opened = [];
+const uploads = [];
 const loc = { protocol: "https:", pathname: "/ardu-field-planner/", search: "", hash: "",
   origin: "https://tecelskyyivan-alt.github.io", hostname: "tecelskyyivan-alt.github.io", reload() {},
   _href: "https://tecelskyyivan-alt.github.io/ardu-field-planner/",
   get href() { return this._href; }, set href(v) { opened.push(String(v)); } };
 const storage = new Map();
 // A long previous session (with coordinates in it) so the URL cap and the scrub both have work to do.
-storage.set("fmp_log", Array.from({ length: 400 }, (_, i) => "[t] подія " + i + " позиція 48.1234567,35.7654321 — довгий рядок події для перевірки ліміту").join("\n"));
+// Error lines carry the kinds of personal data a real log has (#13); none may reach the public issue.
+const PRIVATE = ["Mozilla/5.0", "chrome-extension://eppiocemh", "192.168.4.1", "fe80::1c2:3ff:fe4", "AA:BB:CC:DD:EE:FF", "AA-BB-CC-DD-EE-01",
+  "pilot@example.com", "/Users/ivan/", "C:\\Users\\pilot", "48.1234567", "0123456789abcdef", "PRIVATE-INFO-LINE"];
+storage.set("fmp_log", [
+  ...Array.from({ length: 400 }, (_, i) => "11:29:" + String(i % 60).padStart(2, "0") + ".149 [t] подія " + i + " позиція 48.1234567,35.7654321 PRIVATE-INFO-LINE"),
+  "11:29:09.149 start 2.5.86 web ua=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+  "11:29:09.359 PROMISE REJECT: boom | TypeError at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)",
+  "11:30:00.000 [ЧЕРВОНЕ] WiFi 192.168.4.1:14550 fe80::1c2:3ff:fe4b:12 BLE AA:BB:CC:DD:EE:FF / AA-BB-CC-DD-EE-01 не відповідає",
+  "11:30:01.000 JS ERROR: pilot@example.com /Users/ivan/fields/x.kml C:\\Users\\pilot\\a.kml at 48.1234567,35.7654321 dev 0123456789abcdef",
+].join("\n"));
 const sandbox = {
   console, setTimeout, clearTimeout, setInterval, clearInterval, JSON, Math, Date, Promise,
   parseFloat, parseInt, isNaN, isFinite, encodeURIComponent, decodeURIComponent, RegExp,
@@ -75,7 +85,7 @@ const sandbox = {
     geolocation: makeStub("geo"), clipboard: { writeText: async (s) => { clipboard = s; } } },
   location: loc,
   open: (u) => { opened.push(String(u)); },
-  fetch: () => new Promise(() => {}),
+  fetch: async (url, opt) => { uploads.push({ url, opt }); return { ok: true }; },
   L: makeStub("L"), ClipperLib: makeStub("ClipperLib"), MAVLINK: makeStub("MAVLINK"), MAV_LINK: makeStub("MAV_LINK"),
   confirm: () => false, alert: () => {}, prompt: () => null,
   indexedDB: { open: () => makeStub("idbreq") },
@@ -104,9 +114,19 @@ check("mail goes to the README address", mail.startsWith("mailto:teselskyy@gmail
 check("mail URL fits (<= 7500)", mail.length > 0 && mail.length <= 7500);
 check("full log copied to the clipboard", clipboard.includes("діагностичний лог"));
 
+clipboard = "untouched";
 await REAL["report-issue"].listeners.click();
-const issue = opened.pop() || "";
+const issue = opened.filter((u) => u.startsWith("https://github.com/")).pop() || "";
 const body = decodeURIComponent((issue.split("&body=")[1] || ""));
+const leaked = PRIVATE.filter((x) => body.includes(x));
+check("public issue carries no personal data" + (leaked.length ? "  →  " + leaked.join(", ") : ""), body.length > 0 && leaked.length === 0);
+check("issue keeps the error text", body.includes("PROMISE REJECT: boom") && body.includes("JS ERROR"));
+check("timestamps survive the scrub", body.includes("11:30:00.000"));
+check("issue does not put the full log in the clipboard", clipboard === "untouched");
+const up = uploads.find((u) => /^report_id: r\w+/.test((() => { try { return JSON.parse(u.opt.body).log; } catch (e) { return ""; } })()));
+const rid = up ? JSON.parse(up.opt.body).log.match(/^report_id: (r\w+)/)[1] : "";
+check("full log sent privately with a report id", !!rid);
+check("issue names that report id", !!rid && body.includes("ID звіту: " + rid));
 check("issue opens the repo's new-issue page", issue.startsWith("https://github.com/tecelskyyivan-alt/ardu-field-planner/issues/new?title="));
 check("issue URL fits (<= 7500)", issue.length > 0 && issue.length <= 7500);
 check("issue body has the report header", body.includes("версія:"));
