@@ -5289,7 +5289,6 @@
       } catch (e) { return ""; }
     };
     if ($("apk-ver")) put("apk-ver", await read("version.json"));
-    if ($("beta-ver")) put("beta-ver", await read("beta-version.json"));
   })();
 
   // ---- Backup-sync (opt-in, OFF by default): push/pull key app state to Ivan's own
