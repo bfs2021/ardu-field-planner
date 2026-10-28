@@ -27,6 +27,9 @@ from .mission import (
     to_geofence_plan, to_fence_mp, to_contour_geojson,
 )
 
+#: ArduCopter 4.7.0 default WP_RADIUS_M — what a copter upload restores when round-turn is OFF.
+COPTER_WP_RADIUS_DEFAULT_M = 2.0
+
 
 class Api:
     def __init__(self):
@@ -464,11 +467,17 @@ class Api:
             # so the copter flies a rounded U-turn (diameter ≈ pass step) at each pass end.
             # Copter ≥4.7 uses WP_RADIUS_M (m); older firmware WPNAV_RADIUS (cm). No extra
             # waypoints — the autopilot does the arc. Same new-then-legacy try as WP_SPD.
+            # 0 = round-turn OFF on a copter: put the 4.7.0 default back, or a radius left
+            # by an earlier round-turn upload keeps rounding every corner. Absent / None =
+            # leave it (planes have no WP_RADIUS_M).
+            raw = (params or {}).get("turn_radius_m")
             try:
-                trm = float((params or {}).get("turn_radius_m", 0) or 0)
+                trm = None if raw is None else float(raw)
             except (TypeError, ValueError):
-                trm = 0.0
-            if trm > 0:
+                trm = None
+            if trm == 0:
+                trm = COPTER_WP_RADIUS_DEFAULT_M
+            if trm is not None and trm > 0:
                 pr = LINK.set_param("WP_RADIUS_M", trm)               # m (Copter ≥4.7)
                 if not pr.get("ok"):
                     pr = LINK.set_param("WPNAV_RADIUS", trm * 100.0)  # cm legacy

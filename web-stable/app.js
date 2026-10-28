@@ -2228,6 +2228,8 @@
   // airframe. Return null instead — the caller must skip pushing plane params entirely
   // (arcs stay untuned / effectively off) rather than fly an impossible cruise speed.
   const PLANE_MIN_AIRSPEED = 12.0;
+  // ArduCopter 4.7.0 default WP_RADIUS_M — what a copter upload restores when round-turn is OFF.
+  const COPTER_WP_RADIUS_DEFAULT_M = 2.0;
   function planeTurnParams(spacing, cruise) {
     const R = Math.max(spacing / 2, 1), g = 9.81, bank = 45;
     const vMax = Math.sqrt(0.4 * g * R * Math.tan(bank * Math.PI / 180));
@@ -3227,12 +3229,16 @@
       // Round-turn: set the autopilot's waypoint acceptance/turn radius so the copter
       // flies a rounded U-turn at each pass end. Copter ≥4.7 uses WP_RADIUS_M (m); older
       // firmware WPNAV_RADIUS (cm). No extra waypoints — the autopilot does the arc.
-      const trm = p && p.turn_radius_m;
+      // 0 = round-turn OFF on a copter: put the 4.7.0 default back, or a radius left by an
+      // earlier round-turn upload keeps rounding every corner (null = leave it: planes).
+      const trm0 = p && p.turn_radius_m;
+      const trm = (trm0 === 0) ? COPTER_WP_RADIUS_DEFAULT_M : trm0;
       if (trm && trm > 0 && !isInav) {
         let pr = await _mavLink.setParam("WP_RADIUS_M", trm);
         if (!pr.ok) pr = await _mavLink.setParam("WPNAV_RADIUS", trm * 100);
         res.turn_radius_set = pr.ok;
-        appLog("round-turn: WP_RADIUS_M " + trm + "m -> " + (pr.ok ? "ok" : "FAILED"));
+        appLog("round-turn: WP_RADIUS_M " + trm + "m" + (trm0 === 0 ? " (вимкнено — дефолт)" : "") +
+               " -> " + (pr.ok ? "ok" : "FAILED"));
       }
       // GPS-denied mode: the operator's home becomes the EKF origin on the FC, so the
       // companion takes it from there (vio_onboard --origin fc) — nothing to type.
@@ -4712,7 +4718,7 @@
         appLog("plane-turn: вимкнено — при кроці " + _sp + " м потрібна крейсерська швидкість нижча за безпечний мінімум (" +
           PLANE_MIN_AIRSPEED + " м/с); дуги НЕ тюняться (параметри не залито).");
       }
-      const turnRadiusM = (_rt && !_plane) ? Math.max(1, Math.min(10, _sp / 2)) : 0;
+      const turnRadiusM = _plane ? null : (_rt ? Math.max(1, Math.min(10, _sp / 2)) : 0);
       // Intent-marker for the ACK→flownSave window: if the app is killed after the FC stored the
       // mission but before we snapshot it, boot still sees "probably uploaded — verify" (§4.2). Keep
       // the previous snapshot so a KNOWN failure below undoes the marker (never lose last-good state).
@@ -4832,7 +4838,7 @@
         vio_home: vioHomeForUpload(),
         route: rem.rest,
         onProgress: (s, tot) => setMsg(tf(t("Заливаю місію в дрон… {0}/{1} точок"), s, tot), null),
-        turn_radius_m: _rt ? Math.max(1, Math.min(10, _sp / 2)) : 0,
+        turn_radius_m: isPlaneVehicle() ? null : (_rt ? Math.max(1, Math.min(10, _sp / 2)) : 0),
         verify: ($("mav-verify-fast") && $("mav-verify-fast").checked) ? "count" : "full",
       });
       appLog("[resume] результат заливки: " + JSON.stringify(r && { ok: r.ok, count: r.count, error: r.error }));
