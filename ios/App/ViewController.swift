@@ -122,6 +122,21 @@ final class ViewController: UIViewController, WKScriptMessageHandler, WKNavigati
         webView.load(URLRequest(url: url))
     }
 
+    // Keep the web view on the local app origin. Mail, the repo's new-issue page and its
+    // releases (bug reports, APK download) open in the system apps instead — a WKWebView
+    // silently drops mailto: and the user would see nothing happen.
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
+        if url.host == "127.0.0.1" || url.scheme == "about" { decisionHandler(.allow); return }
+        let repo = "/tecelskyyivan-alt/ardu-field-planner/"
+        if url.scheme == "mailto" || (url.scheme == "https" && url.host == "github.com" &&
+            (url.path.hasPrefix(repo + "issues/new") || url.path.hasPrefix(repo + "releases"))) {
+            UIApplication.shared.open(url)
+        }
+        decisionHandler(.cancel)
+    }
+
     // MARK: - UDP bridge wiring (native → JS)
 
     private func wireUdp() {
