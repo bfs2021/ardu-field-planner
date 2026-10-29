@@ -13,7 +13,7 @@ Phones: a phone browser can't run the bridge itself. With --lan the bridge also 
 the local network, and the phone opens FMP from it: http://<this computer's IP>:14550.
 Anyone on that WiFi can then reach the drone through it, so use --lan only on your own network.
 """
-import asyncio, base64, hashlib, mimetypes, struct, sys
+import asyncio, base64, hashlib, mimetypes, struct, sys, time
 from pathlib import Path
 
 ARGS = [a for a in sys.argv[1:] if a != "--lan"]
@@ -31,7 +31,10 @@ mimetypes.add_type("text/javascript", ".mjs")
 
 clients = set()     # open WebSocket writers
 peer = None         # backpack address, learned from its first packet
-stats = {"udp_in": 0, "ws_in": 0}
+stats = {"udp_in": 0, "ws_in": 0, "foreign": 0}
+last_rx = 0.0      # when the current peer last spoke
+PEER_HOLD = 3.0    # s: another sender may take over only after the peer is this long silent
+MAX_FRAME = 65536  # bytes: MAVLink frames are < 300; bigger is junk or a memory-exhaustion try
 
 
 def ws_frame(payload: bytes) -> bytes:
@@ -50,7 +53,16 @@ class Udp(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        global peer
+        global peer, last_rx
+        now = time.monotonic()
+        if peer and addr != peer and now - last_rx < PEER_HOLD:
+            # Anyone on the WiFi could otherwise become "the drone" with one packet: get our
+            # commands and feed us fake telemetry. Ignore them while the real peer is talking.
+            if not stats["foreign"]:
+                print(f"UDP: ignoring {addr[0]}:{addr[1]} — the drone is {peer[0]}:{peer[1]}", flush=True)
+            stats["foreign"] += 1
+            return
+        last_rx = now
         if peer != addr:
             print(f"UDP: MAVLink from {addr[0]}:{addr[1]}", flush=True)
             peer = addr
@@ -125,6 +137,8 @@ async def handle_ws(reader, writer, udp):
                 n, = struct.unpack("!H", await reader.readexactly(2))
             elif n == 127:
                 n, = struct.unpack("!Q", await reader.readexactly(8))
+            if n > MAX_FRAME:
+                break
             mask = await reader.readexactly(4) if b1 & 0x80 else b"\0\0\0\0"
             data = bytes(c ^ mask[i % 4] for i, c in enumerate(await reader.readexactly(n)))
             if op == 0x8:                                   # close
