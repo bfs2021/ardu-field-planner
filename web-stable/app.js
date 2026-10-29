@@ -3107,8 +3107,16 @@
           // "Listen on all" (0.0.0.0) means that local bridge.
           // A phone browser has no bridge on itself (127.0.0.1 is the phone): only the app can,
           // or FMP opened from a bridge on a computer (--lan), which then is "listen on all".
-          if (!BRIDGE_PAGE && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || ""))
-            return { ok: false, error: "У браузері на телефоні WiFi-зв'язку з дроном немає: браузер не приймає UDP. Підключайся із застосунку FMP (Android APK або iOS), або запусти на комп'ютері міст з --lan і відкрий FMP з нього: http://<IP комп'ютера>:14550." };
+          // Without a computer, the backpack itself must speak WebSocket (backpack firmware with
+          // fmp-relay.html, docs/elrs-backpack-browser.md): its relay window, like the bridge's.
+          // Empty address = the backpack's mDNS name (its own AP and Home WiFi alike).
+          if (!BRIDGE_PAGE && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "")) {
+            const host = conn.slice(4).replace(/:\d+$/, "").replace(/^(0\.0\.0\.0)?$/, "elrs_txbp.local");
+            try { transport = await MAV_TRANSPORT.openRelay("http://" + host + "/fmp-relay.html"); }
+            catch (e) {
+              return { ok: false, error: "Бекпак не відповів: " + ((e && e.message) || e) + " Браузер на телефоні не приймає UDP — потрібна прошивка бекпака з WebSocket для FMP (docs/elrs-backpack-browser.md), телефон у тій самій WiFi, що й бекпак, на пульті Backpack → Telemetry → WiFi. Якщо ім'я не знаходиться — впиши IP бекпака в «Адреса». Або підключайся із застосунку FMP (Android APK або iOS)." };
+            }
+          } else {
           const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, BRIDGE_PAGE ? location.hostname : "127.0.0.1");
           try {
             // Plain WebSocket works when FMP is served by the bridge, or once Chrome lets this
@@ -3125,6 +3133,7 @@
             }
           } catch (e) {
             return { ok: false, error: "Немає зв'язку з мостом UDP: " + ((e && e.message) || e) + " Браузер не приймає UDP напряму — запусти на цьому комп'ютері міст: python3 scripts/udp_ws_bridge.py (з репозиторію FMP), тоді «Підключити» ще раз. Або під'єднайся кабелем." };
+          }
           }
         } else if (conn.startsWith("tcp:")) {
           transport = await MAV_TRANSPORT.openWebSocket("ws://" + conn.slice(4));
