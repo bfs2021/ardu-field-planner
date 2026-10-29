@@ -67,12 +67,12 @@ The engine supports more than the app currently exposes. Reachable by calling
 ## Tests / Тести
 
 ```bash
-python test_core.py        # coverage / mission / geo
-python test_features.py    # margin, auto-angle, cut-outs, liquid, export
-python test_ui.py          # app.js element ids <-> index.html
-python test_serve.py       # HTTP layer
-python test_mavlink.py     # MAVLink over a fake UDP drone
-python test_sitl.py        # E2E against a real ArduCopter SITL (upload -> verify -> download)
+python tests/test_core.py        # coverage / mission / geo
+python tests/test_features.py    # margin, auto-angle, cut-outs, liquid, export
+python tests/test_ui.py          # app.js element ids <-> index.html
+python tests/test_serve.py       # HTTP layer
+python tests/test_mavlink.py     # MAVLink over a fake UDP drone
+python tests/test_sitl.py        # E2E against a real ArduCopter SITL (upload -> verify -> download)
 ```
 
 The full CI set is in [.github/workflows/tests.yml](../.github/workflows/tests.yml).
