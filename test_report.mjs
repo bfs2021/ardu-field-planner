@@ -175,13 +175,26 @@ sandbox4.window = sandbox4; sandbox4.globalThis = sandbox4; sandbox4.self = sand
 vm.runInNewContext(src, sandbox4, { filename: "app.js", timeout: 30000 });
 await REAL["mav-connect"].listeners.click();
 // A phone browser can't do UDP and has no bridge on 127.0.0.1: the backpack's own relay window.
-check("phone browser: empty address -> backpack relay by mDNS name", phoneUrls.length === 1 && phoneUrls[0] === "http://elrs_txbp.local/fmp-relay.html");
+const AUTO = ["http://elrs_txbp.local/fmp-relay.html", "http://10.0.0.1/fmp-relay.html"];
+check("phone browser: empty address -> backpack found by mDNS name, then its access point", phoneUrls.length === 1 && String(phoneUrls[0]) === String(AUTO));
 check("phone browser: no backpack -> error names the backpack firmware doc", String(REAL["msg"].textContent || "").includes("elrs-backpack-browser.md"));
 // A typed backpack IP (with the UDP port) -> that IP on port 80.
 phoneUrls.length = 0;
 REAL["mav-address"].value = "192.168.0.101:14550";
 await REAL["mav-connect"].listeners.click();
-check("phone browser: typed IP -> backpack relay on that IP", phoneUrls[0] === "http://192.168.0.101/fmp-relay.html");
+check("phone browser: typed IP -> only that IP", String(phoneUrls[0]) === "http://192.168.0.101/fmp-relay.html");
+// The backpack that answered is remembered and tried first next time (address left empty).
+const savedUrls = [];
+for (const id of ["mav-connect", "mav-conn-type", "mav-address", "mav-baud", "msg"]) REAL[id] = realEl();
+REAL["mav-conn-type"].value = "udp"; REAL["mav-conn-type"].querySelector = () => null; REAL["mav-address"].value = ""; REAL["mav-baud"].value = "auto";
+const sandbox4b = { ...sandbox4, MAV_TRANSPORT: { serialSupported: () => false,
+  openRelay: async (u) => { savedUrls.push(u); if (savedUrls.length === 1) return { url: [].concat(u)[1], write() {}, close() {}, ondata: null }; throw 0; } } };
+sandbox4b.window = sandbox4b; sandbox4b.globalThis = sandbox4b; sandbox4b.self = sandbox4b;
+vm.runInNewContext(src, sandbox4b, { filename: "app.js", timeout: 30000 });
+await REAL["mav-connect"].listeners.click();
+check("phone browser: answering backpack is remembered", sandbox4b.localStorage.getItem("fmp_backpack_host") === "10.0.0.1");
+await REAL["mav-connect"].listeners.click();
+check("phone browser: remembered backpack is tried first", String(savedUrls[1]) === "http://10.0.0.1/fmp-relay.html,http://elrs_txbp.local/fmp-relay.html");
 
 // ...but a phone that opened FMP from a computer's bridge (--lan) connects to that bridge.
 const lanUrls = [];

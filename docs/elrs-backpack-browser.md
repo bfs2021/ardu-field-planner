@@ -34,12 +34,12 @@ ESP32-C3 backpacks: `ESP32C3_TX_Backpack_via_WIFI`. Back to stock: flash stock 1
 1. Radio: ELRS Lua → **Backpack** → **Telemetry** → **WiFi**.
 2. Phone on the same WiFi as the backpack: its Home WiFi network
    ([elrs-backpack-home-wifi.md](elrs-backpack-home-wifi.md)), or the backpack's own access point.
-3. FMP → **Flight** → **UDP**, address empty (= `elrs_txbp.local`) or the backpack's IP →
-   **Connect**. A small "FMP: drone link" tab opens once per session; keep it, it closes with FMP.
-   Allow pop-ups for the site if the browser blocks it.
+3. FMP → **Flight** → **UDP**, address **empty** → **Connect**. FMP finds the backpack itself:
+   the backpack that answered last time, then `elrs_txbp.local` (Home WiFi), then `10.0.0.1`
+   (the backpack's own access point), all in one small "FMP: drone link" tab; the one that
+   answers is remembered. Keep that tab, it closes with FMP. Allow pop-ups if the browser blocks it.
 
-If `elrs_txbp.local` isn't found, type the backpack's IP (router's client list, or `10.0.0.1`
-on the backpack's own access point). Anyone on that WiFi who can open the backpack's page can
+Only if none of these answers, type the backpack's IP (router's client list) once; it is remembered. Anyone on that WiFi who can open the backpack's page can
 reach the drone — same as with UDP.
 
 ---
@@ -49,4 +49,4 @@ reach the drone — same as with UDP.
 сторінку `/fmp-relay.html`. FMP з GitHub Pages у браузері телефона (iPhone теж) відкриває цю
 сторінку вкладкою й через неї говорить з дроном — без комп'ютера й застосунку. Зібрати —
 `pio run -e ESP_TX_Backpack_via_WIFI`, прошити через веб бекпака (Update). У FMP: **UDP**, адреса
-порожня (`elrs_txbp.local`) або IP бекпака → **Підключити**; на пульті Backpack → Telemetry → WiFi.
+порожня → **Підключити**: FMP сам пробує останній бекпак, `elrs_txbp.local`, `10.0.0.1` і запам'ятовує, що відповіло; на пульті Backpack → Telemetry → WiFi.
