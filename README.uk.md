@@ -4,6 +4,8 @@
 
 [English](README.md) · **Українська**
 
+![Field Mission Planner](docs/banner.svg)
+
 [![Відкрити в браузері](https://img.shields.io/badge/▶_Відкрити_в_браузері-без_встановлення-2ea44f?style=for-the-badge)](https://tecelskyyivan-alt.github.io/ardu-field-planner/)
 [![Завантажити APK](https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=Android%20APK&style=for-the-badge)](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest)
 
