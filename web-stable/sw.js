@@ -11,11 +11,23 @@
  *     upgrade (the version string below changes -> old cache purged).
  *   • BOTH are precached on install, so a freshly-installed PWA can build routes
  *     fully offline even if the user never built one while online.
+ *   • map TILES (satellite/streets, incl. «Офлайн-карта» downloads) live in their OWN
+ *     cache (fmp-tiles-v1), cache-first: a cached tile is shown at once with no network
+ *     round-trip, and a shell bump no longer wipes the offline map.
  *   • /api/* , /downloads/* and non-GET requests are never cached.
  */
-const SHELL_CACHE = "fmp-shell-v120";         // bump this on every app deploy
+const SHELL_CACHE = "fmp-shell-v121";         // bump this on every app deploy
 const PYO_VERSION = "0.26.4";                // == pyodide-lock.json info.version
 const PYO_CACHE = "fmp-pyodide-" + PYO_VERSION;
+const TILE_CACHE = "fmp-tiles-v1";
+const TILE_HOST = /(^|\.)(google\.com|arcgisonline\.com|cartocdn\.com|opentopomap\.org)$/;
+// shortcut: FIFO trim by entry count (cache.keys() is insertion-ordered), not by bytes; switch to a size budget if storage quota errors show up
+const TILE_MAX = 30000;
+let tilePuts = 0;
+async function trimTiles(cache) {
+  const keys = await cache.keys();
+  for (let i = 0; i < keys.length - TILE_MAX; i++) await cache.delete(keys[i]);
+}
 
 // Mutable app code (incl. the backend engine modules the Pyodide worker mounts).
 const SHELL = [
@@ -50,7 +62,7 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
-    const keep = new Set([SHELL_CACHE, PYO_CACHE]);
+    const keep = new Set([SHELL_CACHE, PYO_CACHE, TILE_CACHE]);
     const keys = await caches.keys();
     // Drop old shell versions AND old Pyodide versions, but KEEP the current
     // Pyodide cache across shell bumps (that's the whole point).
@@ -79,6 +91,24 @@ self.addEventListener("fetch", (e) => {
       const res = await fetch(req).catch(() => null);
       if (res && (res.ok || res.type === "opaque")) cache.put(req, res.clone()).catch(() => {});
       return res || new Response("offline", { status: 503 });
+    })());
+    return;
+  }
+
+  // Map tiles: cache-first from the persistent tile cache. The old path (shell cache,
+  // stale-while-revalidate) re-downloaded every cached tile in the background — double
+  // traffic competing with the tiles still missing — and lost them on every deploy.
+  if (url.origin !== self.location.origin && TILE_HOST.test(url.hostname)) {
+    e.respondWith((async () => {
+      const cache = await caches.open(TILE_CACHE);
+      const hit = await cache.match(req);
+      if (hit) return hit;
+      const res = await fetch(req).catch(() => null);
+      if (res && (res.ok || res.type === "opaque")) {
+        cache.put(req, res.clone()).catch(() => {});
+        if (++tilePuts % 500 === 0) trimTiles(cache).catch(() => {});
+      }
+      return res || new Response("", { status: 504 });
     })());
     return;
   }

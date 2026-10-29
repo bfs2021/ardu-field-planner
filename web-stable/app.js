@@ -18,7 +18,7 @@
      || /FMPiOS/.test(navigator.userAgent || ""));
   // Visible build tag so you can confirm an update actually landed (the APK does
   // NOT auto-update — you must reinstall it; the PWA updates on reopen).
-  const APP_VERSION = "2.5.93";
+  const APP_VERSION = "2.5.94";
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
@@ -181,6 +181,9 @@
     // Skip the zoom animation for big jumps (>2 levels) — the tween of a canvas full
     // of vectors is where the stutter shows on weaker phones.
     zoomAnimationThreshold: 2,
+    // Desktop: quarter-level zoom steps so a trackpad pinch/scroll zooms smoothly instead
+    // of jumping a whole level at a time. Phones keep whole levels (tuned for weak GPUs).
+    zoomSnap: L.Browser.mobile ? 1 : 0.25,
     // fadeAnimation off: the per-tile fade-in (×2 stacked layers: satellite + the
     // labels overlay) reads as "map blinking" on weak/hybrid-GPU compositing (the
     // Optimus laptop). Tiles just appear — snappier and no flicker.
@@ -238,7 +241,9 @@
   // mid-drag/zoom — wait until the gesture SETTLES (updateWhenIdle) — and keep a small
   // off-screen buffer so a short pan doesn't blank. This is the main pan-lag fix: the
   // default was loading tiles every frame during a drag, which janks on phones.
-  const TP = { updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 2 };
+  // Desktop (mouse) keeps loading tiles DURING a drag (Leaflet's own desktop default):
+  // idle-only loading there left 56–73% of the map grey until the button was released.
+  const TP = { updateWhenIdle: L.Browser.mobile, updateWhenZooming: false, keepBuffer: L.Browser.mobile ? 2 : 4 };
   const esriSat = L.tileLayer(TILE_URLS.esri,
     { ...TP, maxZoom: 21, maxNativeZoom: 19, noWrap: true, attribution: "Esri World Imagery" }
   );
@@ -1460,7 +1465,6 @@
     const params = {
       boundary,
       spacing: parseFloat($("spacing").value),
-      boom: (parseFloat(($("boom") || {}).value) || 0),   // #9: physical spray width (0/empty → engine uses spacing)
       angle: parseFloat($("angle").value),
       auto_angle: $("auto_angle").checked,
       // Auto-angle = FULL COVERAGE first, then minimum TIME (passes along the
@@ -2189,7 +2193,6 @@
   function collectParams() {
     return {
       spacing: parseFloat($("spacing").value),
-      boom: parseFloat($("boom").value) || "",
       angle: parseFloat($("angle").value),
       auto_angle: $("auto_angle").checked,
       margin: parseFloat($("margin").value) || 0,
@@ -2204,12 +2207,6 @@
       plane_turn: !!($("round-turn") && $("round-turn").checked && isPlaneVehicle()),
       // #12p3: opt-in geofence upload — persisted like the neighbours, default OFF.
       fence_upload: $("fence-upload") ? $("fence-upload").checked : false,
-      // Spray planning (issue #5): backend/api.py has computed working-solution
-      // volume and refills since July, but the UI never sent these. Empty field
-      // -> 0 -> the backend skips the calculation, i.e. previous behaviour.
-      flow_lha: parseFloat($("flow_lha") && $("flow_lha").value) || 0,
-      tank_l: parseFloat($("tank_l") && $("tank_l").value) || 0,
-      battery_min: parseFloat($("battery_min") && $("battery_min").value) || 0,
     };
   }
   // A plane is a plane even if you plan the route BEFORE connecting: remember the
@@ -2249,7 +2246,7 @@
   function applyParams(p) {
     if (!p) return;
     const set = (id, v) => { if (v !== undefined && v !== null && $(id)) $(id).value = v; };
-    set("spacing", p.spacing); set("boom", p.boom); set("angle", p.angle); set("margin", p.margin);
+    set("spacing", p.spacing); set("angle", p.angle); set("margin", p.margin);
     set("alt", p.alt); set("speed", p.speed);
     if ($("auto_angle")) $("auto_angle").checked = !!p.auto_angle;
     if ($("rtl")) $("rtl").checked = p.rtl !== false;
