@@ -1,0 +1,52 @@
+# Phone browser → drone over WiFi, no computer: backpack firmware with WebSocket
+
+A browser can't send or receive UDP, and the stock ELRS backpack speaks MAVLink only over
+UDP `14550`. So FMP in a phone browser (iPhone included) needs the backpack itself to speak
+WebSocket. `firmware/elrs-backpack-1.5.7-fmp-ws.patch` adds that to ExpressLRS TX Backpack
+1.5.7; everything else in the backpack (UDP for QGC / Mission Planner / the FMP apps) keeps
+working.
+
+What the patch adds:
+
+- `ws://<backpack>/mavlink-ws` — raw MAVLink both ways, the same stream as UDP.
+  Accepts only pages served by the backpack itself on an IP or `*.local` address, or
+  non-browser clients (no `Origin`); any other site, including GitHub Pages directly, is closed.
+- `http://<backpack>/fmp-relay.html` — FMP on GitHub Pages opens it as a window; it holds the
+  WebSocket and passes bytes through `postMessage` (the same protocol as the computer bridge's
+  `relay.html`). An https page can't open `ws://` to the LAN itself.
+
+## Build and flash (once)
+
+```sh
+git clone https://github.com/ExpressLRS/Backpack.git && cd Backpack
+git checkout 1.5.7
+git am /path/to/ardu-field-planner/firmware/elrs-backpack-1.5.7-fmp-ws.patch
+pip install platformio
+pio run -e ESP_TX_Backpack_via_WIFI        # ESP8285 TX backpacks (RadioMaster Ranger, ...)
+```
+
+Flash `.pio/build/ESP_TX_Backpack_via_WIFI/firmware.bin` through the backpack's web page
+(`http://<backpack IP>` or `http://10.0.0.1` → Update), or the ELRS Configurator's local file option.
+ESP32-C3 backpacks: `ESP32C3_TX_Backpack_via_WIFI`. Back to stock: flash stock 1.5.7 the same way.
+
+## Each flight
+
+1. Radio: ELRS Lua → **Backpack** → **Telemetry** → **WiFi**.
+2. Phone on the same WiFi as the backpack: its Home WiFi network
+   ([elrs-backpack-home-wifi.md](elrs-backpack-home-wifi.md)), or the backpack's own access point.
+3. FMP → **Flight** → **UDP**, address empty (= `elrs_txbp.local`) or the backpack's IP →
+   **Connect**. A small "FMP: drone link" tab opens once per session; keep it, it closes with FMP.
+   Allow pop-ups for the site if the browser blocks it.
+
+If `elrs_txbp.local` isn't found, type the backpack's IP (router's client list, or `10.0.0.1`
+on the backpack's own access point). Anyone on that WiFi who can open the backpack's page can
+reach the drone — same as with UDP.
+
+---
+
+**UA коротко.** Браузер не вміє UDP, а стоковий бекпак ELRS дає MAVLink лише по UDP. Патч
+`firmware/elrs-backpack-1.5.7-fmp-ws.patch` додає в бекпак 1.5.7 WebSocket `/mavlink-ws` і
+сторінку `/fmp-relay.html`. FMP з GitHub Pages у браузері телефона (iPhone теж) відкриває цю
+сторінку вкладкою й через неї говорить з дроном — без комп'ютера й застосунку. Зібрати —
+`pio run -e ESP_TX_Backpack_via_WIFI`, прошити через веб бекпака (Update). У FMP: **UDP**, адреса
+порожня (`elrs_txbp.local`) або IP бекпака → **Підключити**; на пульті Backpack → Telemetry → WiFi.
