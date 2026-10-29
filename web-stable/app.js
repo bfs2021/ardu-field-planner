@@ -1763,8 +1763,10 @@
       let r;
       try { r = await eng.exportFiles(fmt); } catch (e) { r = { ok: false, error: (e && e.message) || String(e) }; }
       if (!r || !r.ok) { setMsg((r && r.error) || t("Не вдалося зберегти."), "error"); return; }
-      for (const f of r.files) await downloadBlob(f.name, "text/plain", f.content);
-      setMsg(t("Збережено: ") + r.files.map((f) => f.name).join(", "), "ok");
+      const where = [];
+      try { for (const f of r.files) where.push(await downloadBlob(f.name, "text/plain", f.content) || f.name); }
+      catch (e) { setMsg(t("Не вдалося зберегти.") + " " + ((e && e.message) || e), "error"); return; }
+      setMsg(t("Збережено: ") + where.join(", "), "ok");
       return;
     }
     const a = api();
@@ -4435,7 +4437,15 @@
 
   // Share a file if the platform supports it, else trigger a download. Reused by
   // the flight-log JSON, the work-records CSV, and the KML contour export.
+  // Returns where the file went (APK: "Завантаження/<name>"), or null for a browser download.
   async function downloadBlob(filename, mime, text) {
+    // APK: the WebView has no Web Share and ignores <a download> on blob: — save natively.
+    if (window.AndroidSave && window.AndroidSave.save) {
+      const r = JSON.parse(window.AndroidSave.save(filename, mime, String(text)));
+      appLog("save " + filename + ": " + JSON.stringify(r));
+      if (!r.ok) throw new Error(r.error || "save failed");
+      return r.where;
+    }
     const blob = new Blob([text], { type: mime });
     try {
       const file = new File([blob], filename, { type: mime });

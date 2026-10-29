@@ -161,6 +161,7 @@ class MainActivity : Activity() {
         webView.addJavascriptInterface(PhotoBridge(webView), "AndroidPhoto")  // photo-import upload
         webView.addJavascriptInterface(NotifyBridge(this, webView), "AndroidNotify")  // pinned live-telemetry notification (#3)
         webView.addJavascriptInterface(SyncBridge(webView), "AndroidSync")  // #10 backup-sync native transport (CORS-free)
+        webView.addJavascriptInterface(SaveBridge(this), "AndroidSave")  // exports -> Downloads (WebView ignores blob downloads)
         // In-app self-update (download + install an APK): only for the self-distributed
         // builds. The Google Play build (SELF_UPDATE=false) omits it — Play forbids apps
         // installing APKs, and the REQUEST_INSTALL_PACKAGES permission is stripped too.
