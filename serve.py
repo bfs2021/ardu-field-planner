@@ -67,6 +67,20 @@ TILE_PROVIDERS = {
 TILES_DIR = os.path.join(HERE, "tiles_cache")
 
 
+def _same_origin_local(host, origin):
+    """True for a request from FMP's own page. Any web page can POST here (a text/plain
+    POST needs no CORS preflight) and arm the drone, so a foreign Origin is refused; Host
+    must be an IP literal or localhost, which DNS rebinding (needs a domain) can't fake."""
+    import ipaddress, urllib.parse
+    name = urllib.parse.urlsplit("//" + (host or "")).hostname or ""
+    if name != "localhost":
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            return False
+    return origin is None or origin == "http://" + host
+
+
 def _photo_debug_keep(payload, res, keep=20):
     """Retain each photo-import request (image + response summary) under
     logs/photo/ so a field report («контури зʼїхали») is reproducible: without
@@ -481,6 +495,9 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
     def do_POST(self):
+        if not _same_origin_local(self.headers.get("Host"), self.headers.get("Origin")):
+            self._send(403, json.dumps({"ok": False, "error": "foreign origin"}))
+            return
         try:
             n = int(self.headers.get("Content-Length", 0) or 0)
         except (TypeError, ValueError):

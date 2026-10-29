@@ -186,6 +186,31 @@ try:
 except OSError:
     pass
 
+print("\n== foreign web pages can't drive the drone (CSRF / DNS rebinding) ==")
+
+
+def post_status(headers):
+    req = urllib.request.Request(BASE + "/api/mav_status", data=b"{}", headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
+check("own page (Origin = Host) -> 200",
+      post_status({"Content-Type": "application/json", "Origin": BASE}) == 200)
+check("no Origin (desktop host / script) -> 200", post_status({"Content-Type": "application/json"}) == 200)
+check("text/plain POST from a foreign site -> 403",
+      post_status({"Content-Type": "text/plain", "Origin": "https://evil.example"}) == 403)
+check("sandboxed iframe (Origin: null) -> 403", post_status({"Origin": "null"}) == 403)
+check("DNS-rebinding Host (a domain name) -> 403",
+      post_status({"Host": f"evil.example:{PORT}", "Origin": f"http://evil.example:{PORT}"}) == 403)
+check("localhost Host with own Origin -> 200",
+      post_status({"Host": f"localhost:{PORT}", "Origin": f"http://localhost:{PORT}"}) == 200)
+check("_same_origin_local: IPv6 loopback", serve._same_origin_local("[::1]:8731", "http://[::1]:8731"))
+check("_same_origin_local: missing Host refused", not serve._same_origin_local(None, None))
+
 print("\n== unknown endpoint ==")
 s, u = post("/api/does-not-exist", {})
 check("unknown endpoint -> ok:false", u.get("ok") is False)

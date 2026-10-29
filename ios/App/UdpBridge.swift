@@ -6,7 +6,7 @@ import Network
 ///   open(port)  — bind a local UDP port (udpin) and listen on every interface,
 ///                 learning the peer (the backpack) from the first datagram so the
 ///                 GCS heartbeat we send is routed straight back to it;
-///   write(data) — send to the most-recent peer;
+///   write(data) — send to the peer (another sender takes over only after it's 3 s silent);
 ///   close()     — tear everything down.
 /// Incoming datagrams are handed to `onData`; lifecycle to `onEvent`.
 final class UdpBridge {
@@ -16,6 +16,8 @@ final class UdpBridge {
     private var listener: NWListener?
     private var connections: [NWConnection] = []
     private var activeConn: NWConnection?
+    private var lastRx = Date.distantPast   // when the peer last spoke
+    private let peerHold: TimeInterval = 3
     private let queue = DispatchQueue(label: "fmp.udp")
 
     func open(port: UInt16) {
@@ -57,13 +59,13 @@ final class UdpBridge {
         for c in connections { c.cancel() }
         connections.removeAll()
         activeConn = nil
+        lastRx = .distantPast
     }
 
     // MARK: - private
 
     private func accept(_ conn: NWConnection) {
         connections.append(conn)
-        activeConn = conn
         conn.stateUpdateHandler = { [weak self] st in
             switch st {
             case .failed, .cancelled: self?.drop(conn)
@@ -77,8 +79,12 @@ final class UdpBridge {
     private func receive(on conn: NWConnection) {
         conn.receiveMessage { [weak self] data, _, _, err in
             guard let self = self else { return }
-            if let d = data, !d.isEmpty {
-                self.activeConn = conn        // reply to whoever last spoke to us
+            // Anyone on the WiFi could otherwise become "the drone" with one packet: get our
+            // commands and feed fake telemetry. Another sender wins only after the peer is silent.
+            if let d = data, !d.isEmpty,
+               self.activeConn == nil || self.activeConn === conn || Date().timeIntervalSince(self.lastRx) >= self.peerHold {
+                self.activeConn = conn
+                self.lastRx = Date()
                 self.onData?(d)
             }
             if err == nil { self.receive(on: conn) }
@@ -87,6 +93,6 @@ final class UdpBridge {
 
     private func drop(_ conn: NWConnection) {
         connections.removeAll { $0 === conn }
-        if activeConn === conn { activeConn = connections.last }
+        if activeConn === conn { activeConn = nil }   // the next sender becomes the peer
     }
 }

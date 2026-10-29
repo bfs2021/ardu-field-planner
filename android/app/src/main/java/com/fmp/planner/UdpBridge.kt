@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
@@ -63,6 +64,8 @@ class UdpBridge(private val ctx: Context, private val web: WebView) {
     @Volatile private var recvThread: Thread? = null
     @Volatile private var remote: InetAddress? = null
     @Volatile private var remotePort = 0
+    private val peerLock = PeerLock()
+    private var foreignDropped = 0L
     private var port = 14550
     private val broadcast: InetAddress = InetAddress.getByName("255.255.255.255")
     private var subnetBroadcasts: List<InetAddress> = emptyList()
@@ -199,6 +202,10 @@ class UdpBridge(private val ctx: Context, private val web: WebView) {
                 }
                 continue
             }
+            if (!peerLock.accept("${pkt.address?.hostAddress}:${pkt.port}", SystemClock.elapsedRealtime())) {
+                if (foreignDropped++ == 0L) dlog("ігнорую ${pkt.address?.hostAddress}:${pkt.port} — дрон: ${remote?.hostAddress}:$remotePort")
+                continue
+            }
             remote = pkt.address                     // learn who the backpack/FC is
             remotePort = pkt.port
             rxPackets++
@@ -302,6 +309,7 @@ class UdpBridge(private val ctx: Context, private val web: WebView) {
         val s = socket
         socket = null
         remote = null
+        peerLock.reset()
         if (s != null && rxPackets == 0L && openedAt > 0L) {
             dlog("закрито: 0 пакетів отримано за весь сеанс — WiFi-лінк не приніс телеметрії")
         } else if (s != null) {

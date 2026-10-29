@@ -141,6 +141,37 @@ def build_mission_items(home, takeoff_alt, waypoints, wp_alt, rtl=True, speed=0.
     return items
 
 
+
+PEER_HOLD = 3.0   # s: another UDP sender may take over only after the drone is this long silent
+
+
+def _pin_udp_peer(conn, hold=PEER_HOLD):
+    """udpin (pymavlink udp_server) accepts packets from anyone and sends to every address
+    that ever wrote to it, so one packet from another host on the WiFi gets our commands and
+    feeds us fake telemetry. Keep one peer; a new sender wins only after `hold` s of silence."""
+    import errno, socket
+    from pymavlink import mavutil
+    if not (isinstance(conn, mavutil.mavudp) and conn.udp_server):
+        return
+    peer = [None, 0.0]
+
+    def recv(n=None):
+        try:
+            data, addr = conn.port.recvfrom(mavutil.UDP_MAX_PACKET_LEN)
+        except socket.error as e:
+            if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK, errno.ECONNREFUSED):
+                return ""
+            raise
+        now = time.monotonic()
+        if peer[0] and addr != peer[0] and now - peer[1] < hold:
+            return ""
+        peer[:] = [addr, now]
+        conn.clients = {addr}                      # write() sends to these
+        conn.clients_last_alive = {addr: time.time()}
+        return data
+
+    conn.recv = recv
+
 class MavLink:
     """Singleton-style live link. One instance shared by the API."""
 
@@ -233,6 +264,7 @@ class MavLink:
                 why = str(exc)
             return {"ok": False, "error": f"Не вдалося підключитися до {conn_str}: {why}."}
 
+        _pin_udp_peer(conn)
         self._conn = conn
         self._conn_str = conn_str
         self._stop.clear()

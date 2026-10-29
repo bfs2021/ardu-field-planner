@@ -13,7 +13,7 @@ Phones: a phone browser can't run the bridge itself. With --lan the bridge also 
 the local network, and the phone opens FMP from it: http://<this computer's IP>:14550.
 Anyone on that WiFi can then reach the drone through it, so use --lan only on your own network.
 """
-import asyncio, base64, hashlib, mimetypes, struct, sys
+import asyncio, base64, hashlib, mimetypes, struct, sys, time
 from pathlib import Path
 
 ARGS = [a for a in sys.argv[1:] if a != "--lan"]
@@ -24,12 +24,17 @@ GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 WEB = (Path(__file__).resolve().parent.parent / "web-stable").resolve()
 # Pyodide (~27 MB) is not in git; same pinned build the Pages deploy uses (.github/pyodide.sha256).
 PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"
+# FMP on Pages talks to the bridge directly when Chrome allows it (and via relay.html otherwise).
+PAGES_ORIGIN = "https://tecelskyyivan-alt.github.io"
 mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("text/javascript", ".mjs")
 
 clients = set()     # open WebSocket writers
 peer = None         # backpack address, learned from its first packet
-stats = {"udp_in": 0, "ws_in": 0}
+stats = {"udp_in": 0, "ws_in": 0, "foreign": 0}
+last_rx = 0.0      # when the current peer last spoke
+PEER_HOLD = 3.0    # s: another sender may take over only after the peer is this long silent
+MAX_FRAME = 65536  # bytes: MAVLink frames are < 300; bigger is junk or a memory-exhaustion try
 
 
 def ws_frame(payload: bytes) -> bytes:
@@ -48,7 +53,16 @@ class Udp(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        global peer
+        global peer, last_rx
+        now = time.monotonic()
+        if peer and addr != peer and now - last_rx < PEER_HOLD:
+            # Anyone on the WiFi could otherwise become "the drone" with one packet: get our
+            # commands and feed us fake telemetry. Ignore them while the real peer is talking.
+            if not stats["foreign"]:
+                print(f"UDP: ignoring {addr[0]}:{addr[1]} — the drone is {peer[0]}:{peer[1]}", flush=True)
+            stats["foreign"] += 1
+            return
+        last_rx = now
         if peer != addr:
             print(f"UDP: MAVLink from {addr[0]}:{addr[1]}", flush=True)
             peer = addr
@@ -56,6 +70,20 @@ class Udp(asyncio.DatagramProtocol):
         frame = ws_frame(data)
         for w in list(clients):
             w.write(frame)
+
+
+def allowed(host, origin):
+    """Only FMP itself may drive the drone: any web page can open a WebSocket to 127.0.0.1
+    (no CORS for WS), so a foreign Origin is refused. Host must be an IP literal or
+    localhost, which DNS rebinding (needs a domain name) can't fake."""
+    import ipaddress, urllib.parse
+    name = urllib.parse.urlsplit("//" + (host or "")).hostname or ""
+    if name != "localhost":
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            return False
+    return origin is None or origin in ("http://" + host, PAGES_ORIGIN)
 
 
 def http_response(request_line: str) -> bytes:
@@ -90,6 +118,12 @@ async def handle_ws(reader, writer, udp):
     if not key:     # plain HTTP: serve the FMP web app
         writer.write(http_response(head.split(b"\r\n", 1)[0].decode(errors="replace")))
         await writer.drain(); writer.close(); return
+    hdr = {k.strip().lower(): v.strip() for k, _, v in
+           (l.decode(errors="replace").partition(":") for l in head.split(b"\r\n")[1:] if b":" in l)}
+    if not allowed(hdr.get("host"), hdr.get("origin")):
+        print(f"WS: refused origin {hdr.get('origin')!r} host {hdr.get('host')!r}", flush=True)
+        writer.write(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n")
+        await writer.drain(); writer.close(); return
     accept = base64.b64encode(hashlib.sha1(key + GUID).digest())
     writer.write(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
                  b"Sec-WebSocket-Accept: " + accept + b"\r\n\r\n")
@@ -103,6 +137,8 @@ async def handle_ws(reader, writer, udp):
                 n, = struct.unpack("!H", await reader.readexactly(2))
             elif n == 127:
                 n, = struct.unpack("!Q", await reader.readexactly(8))
+            if n > MAX_FRAME:
+                break
             mask = await reader.readexactly(4) if b1 & 0x80 else b"\0\0\0\0"
             data = bytes(c ^ mask[i % 4] for i, c in enumerate(await reader.readexactly(n)))
             if op == 0x8:                                   # close
