@@ -24,6 +24,8 @@ GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 WEB = (Path(__file__).resolve().parent.parent / "web-stable").resolve()
 # Pyodide (~27 MB) is not in git; same pinned build the Pages deploy uses (.github/pyodide.sha256).
 PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"
+# FMP on Pages talks to the bridge directly when Chrome allows it (and via relay.html otherwise).
+PAGES_ORIGIN = "https://tecelskyyivan-alt.github.io"
 mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("text/javascript", ".mjs")
 
@@ -58,6 +60,20 @@ class Udp(asyncio.DatagramProtocol):
             w.write(frame)
 
 
+def allowed(host, origin):
+    """Only FMP itself may drive the drone: any web page can open a WebSocket to 127.0.0.1
+    (no CORS for WS), so a foreign Origin is refused. Host must be an IP literal or
+    localhost, which DNS rebinding (needs a domain name) can't fake."""
+    import ipaddress, urllib.parse
+    name = urllib.parse.urlsplit("//" + (host or "")).hostname or ""
+    if name != "localhost":
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            return False
+    return origin is None or origin in ("http://" + host, PAGES_ORIGIN)
+
+
 def http_response(request_line: str) -> bytes:
     parts = request_line.split(" ")
     path = parts[1].split("?", 1)[0] if len(parts) > 1 else "/"
@@ -89,6 +105,12 @@ async def handle_ws(reader, writer, udp):
                 if l.lower().startswith(b"sec-websocket-key:")), None)
     if not key:     # plain HTTP: serve the FMP web app
         writer.write(http_response(head.split(b"\r\n", 1)[0].decode(errors="replace")))
+        await writer.drain(); writer.close(); return
+    hdr = {k.strip().lower(): v.strip() for k, _, v in
+           (l.decode(errors="replace").partition(":") for l in head.split(b"\r\n")[1:] if b":" in l)}
+    if not allowed(hdr.get("host"), hdr.get("origin")):
+        print(f"WS: refused origin {hdr.get('origin')!r} host {hdr.get('host')!r}", flush=True)
+        writer.write(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n")
         await writer.drain(); writer.close(); return
     accept = base64.b64encode(hashlib.sha1(key + GUID).digest())
     writer.write(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"

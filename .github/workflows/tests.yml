@@ -20,6 +20,7 @@ jobs:
           python test_core.py
           python test_features.py
           python test_serve.py
+          python test_bridge.py
           python test_split.py
           python test_ui.py
           python test_gaps.py
