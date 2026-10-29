@@ -17,7 +17,7 @@ What the patch adds:
 
 ## Ready-made firmware
 
-[Release `1.5.7-fmp-ws`](https://github.com/tecelskyyivan-alt/Backpack/releases/tag/1.5.7-fmp-ws): `ESP_TX_Backpack-1.5.7-fmp-ws.bin` (ESP8285: RadioMaster Ranger / Ranger Micro / Ranger Nano, …) and `ESP32C3_TX_Backpack-1.5.7-fmp-ws.bin`, built from source with no Wi-Fi or personal data inside. Flash it through the backpack's web page → Update; your saved Home WiFi stays. Upstream proposal: [ExpressLRS/Backpack#252](https://github.com/ExpressLRS/Backpack/issues/252).
+In every FMP release since [v2.5.97](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/tag/v2.5.97) (next to the APK): `ESP_TX_Backpack-1.5.7-fmp-ws.bin` (ESP8285: RadioMaster Ranger / Ranger Micro / Ranger Nano, …) and `ESP32C3_TX_Backpack-1.5.7-fmp-ws.bin`, built from source with no Wi-Fi or personal data inside (source: [`fmp-ws`](https://github.com/tecelskyyivan-alt/Backpack/tree/fmp-ws), same as `firmware/elrs-backpack-1.5.7-fmp-ws.patch`). Flash it through the backpack's web page → Update; your saved Home WiFi stays. Upstream proposal: [ExpressLRS/Backpack#252](https://github.com/ExpressLRS/Backpack/issues/252).
 
 ## Build and flash (once)
 
