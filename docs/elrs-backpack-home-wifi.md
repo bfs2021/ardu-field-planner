@@ -20,7 +20,9 @@ ESP-based TX module, TX/RX firmware **3.5.0+**, TX Backpack **1.5.0+**.
 ## Each flight
 
 1. Power the router / modem / access point, then the radio. The backpack joins the network.
-2. Join the same network from the phone, tablet or laptop running FMP.
+2. Join the same network from the phone or tablet running the FMP **Android or iOS app**.
+   The web version in a browser (Chrome on a PC included) can't receive UDP, so it can't
+   use this link; on a PC connect over the USB cable instead.
 3. FMP → **Flight** → link type **UDP**, address `0.0.0.0:14550` → **Connect**.
 
 FMP needs no special mode for this: the Android and iOS apps listen on every interface and
