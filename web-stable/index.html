@@ -225,6 +225,19 @@
         <button id="mav-connect" class="primary">Підключити</button>
         <button id="mav-disconnect" class="ghost" disabled>Відключити</button>
       </div>
+      <!-- Shown when a phone browser can't reach the backpack: the stock ELRS backpack only speaks UDP. -->
+      <div id="bp-fw-help" class="bp-help" hidden>
+        <b>Онови прошивку бекпака</b>
+        <p>Браузер на телефоні з'єднується з дроном лише через бекпак ELRS із прошивкою FMP: стокова дає тільки UDP, а браузер його не вміє.</p>
+        <a id="bp-fw-link" class="bp-help-btn" href="https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest" target="_blank" rel="noopener">Завантажити прошивку бекпака</a>
+        <ol>
+          <li>Візьми файл <b>ESP_TX_Backpack-…-fmp-ws.bin</b> (RadioMaster Ranger, Ranger Micro, Ranger Nano) або <b>ESP32C3_TX_Backpack-…-fmp-ws.bin</b>.</li>
+          <li>Відкрий сторінку бекпака: його IP у твоїй WiFi або <b>http://10.0.0.1</b> на його точці «ExpressLRS TX Backpack» → Update → вибери файл.</li>
+          <li>На пульті: ELRS Lua → Backpack → Telemetry → <b>WiFi</b>.</li>
+          <li>Телефон у тій самій WiFi, що й бекпак → «Підключити» з порожньою адресою.</li>
+        </ol>
+        <p class="hint">Уже прошито? Впиши IP бекпака в «Адреса». Застосунку FMP для Android прошивка не потрібна.</p>
+      </div>
       <button id="mav-upload" disabled>Залити місію в дрон</button>
       <label class="row" style="font-weight:400;margin:4px 0 0" title="Лише кількість точок — швидше на слабкому ELRS, але НЕ звіряє координати"><input id="mav-verify-fast" type="checkbox" /> Швидка перевірка (лише кількість точок)</label>
       <label class="row" style="font-weight:400;margin:4px 0 0" title="Опційно: заливає межу поля (+ вирізи) як точки geofence. FENCE_ENABLE НЕ вмикається — увімкни сам, коли будеш готовий."><input id="fence-upload" type="checkbox" /> Геозона: залити межі поля в дрон</label>

@@ -169,6 +169,7 @@ check("no bridge -> error names the bridge script", String(REAL["msg"].textConte
 const phoneUrls = [];
 for (const id of ["mav-connect", "mav-conn-type", "mav-address", "mav-baud", "msg"]) REAL[id] = realEl();
 REAL["mav-conn-type"].value = "udp"; REAL["mav-conn-type"].querySelector = () => null; REAL["mav-address"].value = ""; REAL["mav-baud"].value = "auto";
+REAL["bp-fw-help"] = realEl(); REAL["bp-fw-help"].hidden = true; REAL["bp-fw-help"].scrollIntoView = () => {};
 const sandbox4 = { ...sandbox3, navigator: { ...sandbox.navigator, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) CriOS/156" },
   MAV_TRANSPORT: { serialSupported: () => false, openWebSocket: async (u) => { phoneUrls.push(u); throw 0; }, openRelay: async (u) => { phoneUrls.push(u); throw 0; } } };
 sandbox4.window = sandbox4; sandbox4.globalThis = sandbox4; sandbox4.self = sandbox4;
@@ -177,7 +178,8 @@ await REAL["mav-connect"].listeners.click();
 // A phone browser can't do UDP and has no bridge on 127.0.0.1: the backpack's own relay window.
 const AUTO = ["http://elrs_txbp.local/fmp-relay.html", "http://10.0.0.1/fmp-relay.html"];
 check("phone browser: empty address -> backpack found by mDNS name, then its access point", phoneUrls.length === 1 && String(phoneUrls[0]) === String(AUTO));
-check("phone browser: no backpack -> error names the backpack firmware doc", String(REAL["msg"].textContent || "").includes("elrs-backpack-browser.md"));
+check("phone browser: no backpack -> error recommends the FMP backpack firmware", String(REAL["msg"].textContent || "").includes("прошивкою FMP"));
+check("phone browser: no backpack -> firmware help card shown", REAL["bp-fw-help"].hidden === false);
 // A typed backpack IP (with the UDP port) -> that IP on port 80.
 phoneUrls.length = 0;
 REAL["mav-address"].value = "192.168.0.101:14550";
