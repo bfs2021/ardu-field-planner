@@ -1,6 +1,5 @@
-From 8b7796aad6abcd1914b69e73f672351a48d69747 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?=D0=86=D0=B2=D0=B0=D0=BD=20=D0=A2=D0=B5=D1=81=D0=B5=D0=BB?=
- =?UTF-8?q?=D1=8C=D1=81=D1=8C=D0=BA=D0=B8=D0=B9?= <tecelskyyivan@gmail.com>
+From 2e85f59255d5f2c0cd9056840166bdb4bc188d88 Mon Sep 17 00:00:00 2001
+From: tecelskyyivan-alt <279259163+tecelskyyivan-alt@users.noreply.github.com>
 Date: Thu, 29 Oct 2026 20:20:44 +0200
 Subject: [PATCH] TX backpack: MAVLink over WebSocket (/mavlink-ws) +
  /fmp-relay.html for browser GCS
