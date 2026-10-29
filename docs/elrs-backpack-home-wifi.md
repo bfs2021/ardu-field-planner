@@ -23,8 +23,10 @@ ESP-based TX module, TX/RX firmware **3.5.0+**, TX Backpack **1.5.0+**.
 2. Join the same network from the phone, tablet or computer running FMP. The computer may
    sit on the router's 5 GHz band; only the backpack needs 2.4 GHz.
 3. **Web version on a computer only:** a browser can't receive UDP, so start the bridge
-   once per session: `python3 scripts/udp_ws_bridge.py` (stdlib, no installs). On the first
-   connect Chrome asks to let the site reach devices on the local network: allow it.
+   once per session: `python3 scripts/udp_ws_bridge.py` (stdlib, no installs), then open
+   FMP from the bridge at **http://127.0.0.1:14550**, not from GitHub Pages: Chrome blocks
+   a public site from reaching the computer itself. Fields saved on the Pages site don't
+   show up there (another address); move a field with KML export / import.
    The Android and iOS apps need no bridge.
 4. FMP → **Flight** → link type **UDP**, leave the address empty (auto) → **Connect**.
 

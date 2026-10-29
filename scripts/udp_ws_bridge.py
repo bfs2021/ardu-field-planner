@@ -3,14 +3,23 @@
 link (ELRS backpack, ESP bridge). Browsers can't receive UDP; this listens for MAVLink on
 UDP 0.0.0.0:14550 and hands it to FMP over ws://127.0.0.1:14550 (and back).
 
+It also serves FMP itself at http://127.0.0.1:14550: Chrome blocks a public site (GitHub
+Pages) from reaching 127.0.0.1 (Local Network Access), but a page from 127.0.0.1 may.
+
 Run:   python3 scripts/udp_ws_bridge.py        (stdlib only, no installs)
-FMP:   Flight -> UDP, address 0.0.0.0:14550 (default) -> Connect.
+Open:  http://127.0.0.1:14550  ->  Flight -> UDP, address empty (auto) -> Connect.
 """
-import asyncio, base64, hashlib, struct, sys
+import asyncio, base64, hashlib, mimetypes, struct, sys
+from pathlib import Path
 
 UDP_PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 14550
 WS_HOST, WS_PORT = "127.0.0.1", UDP_PORT   # same number, TCP vs UDP don't clash
 GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+WEB = (Path(__file__).resolve().parent.parent / "web-stable").resolve()
+# Pyodide (~27 MB) is not in git; same pinned build the Pages deploy uses (.github/pyodide.sha256).
+PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"
+mimetypes.add_type("application/wasm", ".wasm")
+mimetypes.add_type("text/javascript", ".mjs")
 
 clients = set()     # open WebSocket writers
 peer = None         # backpack address, learned from its first packet
@@ -43,6 +52,22 @@ class Udp(asyncio.DatagramProtocol):
             w.write(frame)
 
 
+def http_response(request_line: str) -> bytes:
+    parts = request_line.split(" ")
+    path = parts[1].split("?", 1)[0] if len(parts) > 1 else "/"
+    if path.startswith("/pyodide/"):
+        return f"HTTP/1.1 302 Found\r\nLocation: {PYODIDE_CDN}{path[9:]}\r\nContent-Length: 0\r\n\r\n".encode()
+    f = (WEB / path.lstrip("/")).resolve()
+    if f.is_dir():
+        f = f / "index.html"
+    if WEB not in f.parents or not f.is_file():     # also refuses ../ escapes
+        return b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+    body = f.read_bytes()
+    ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
+    return (f"HTTP/1.1 200 OK\r\nContent-Type: {ctype}\r\nContent-Length: {len(body)}\r\n"
+            "Cache-Control: no-cache\r\n\r\n").encode() + body
+
+
 async def handle_ws(reader, writer, udp):
     try:
         head = await reader.readuntil(b"\r\n\r\n")
@@ -50,8 +75,9 @@ async def handle_ws(reader, writer, udp):
         writer.close(); return
     key = next((l.split(b":", 1)[1].strip() for l in head.split(b"\r\n")
                 if l.lower().startswith(b"sec-websocket-key:")), None)
-    if not key:
-        writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n"); writer.close(); return
+    if not key:     # plain HTTP: serve the FMP web app
+        writer.write(http_response(head.split(b"\r\n", 1)[0].decode(errors="replace")))
+        await writer.drain(); writer.close(); return
     accept = base64.b64encode(hashlib.sha1(key + GUID).digest())
     writer.write(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
                  b"Sec-WebSocket-Accept: " + accept + b"\r\n\r\n")
@@ -102,6 +128,7 @@ async def main():
     udp, _ = await loop.create_datagram_endpoint(Udp, sock=sock)
     server = await asyncio.start_server(lambda r, w: handle_ws(r, w, udp), WS_HOST, WS_PORT)
     print(f"Bridge: UDP 0.0.0.0:{UDP_PORT}  <->  ws://{WS_HOST}:{WS_PORT}. Ctrl+C to stop.", flush=True)
+    print(f"Open FMP: http://{WS_HOST}:{WS_PORT}", flush=True)
     asyncio.create_task(report())
     async with server:
         await server.serve_forever()

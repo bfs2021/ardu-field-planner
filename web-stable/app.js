@@ -23,7 +23,9 @@
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
   // shortcut: a *.github.io origin is treated as a static host (no /api/log, /api/sync); another static host needs VPS_BASE or this regex
-  const STATIC_HOST = /\.github\.io$/i.test(location.hostname);
+  // 127.0.0.1:14550 = FMP served by scripts/udp_ws_bridge.py, also static (no /api).
+  const STATIC_HOST = /\.github\.io$/i.test(location.hostname) ||
+    (location.hostname === "127.0.0.1" && location.port === "14550");
   // Bug reports without a server (#11): the operator sends them by mail or as a GitHub issue.
   const REPORT_EMAIL = "teselskyy@gmail.com";
   const REPORT_REPO = "https://github.com/tecelskyyivan-alt/ardu-field-planner";
@@ -3107,7 +3109,7 @@
           // "Listen on all" (0.0.0.0) means that local bridge.
           const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, "127.0.0.1");
           try { transport = await MAV_TRANSPORT.openWebSocket("ws://" + addr); }
-          catch (e) { return { ok: false, error: "Браузер не приймає UDP напряму. Запусти на цьому комп'ютері міст: python3 scripts/udp_ws_bridge.py (з репозиторію FMP), тоді «Підключити» ще раз. Або під'єднайся кабелем." }; }
+          catch (e) { return { ok: false, error: "Браузер не приймає UDP напряму. Запусти на цьому комп'ютері міст: python3 scripts/udp_ws_bridge.py (з репозиторію FMP) і відкрий FMP з нього: http://127.0.0.1:14550. Або під'єднайся кабелем." }; }
         } else if (conn.startsWith("tcp:")) {
           transport = await MAV_TRANSPORT.openWebSocket("ws://" + conn.slice(4));
         } else if (IS_ANDROID) {
