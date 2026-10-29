@@ -166,5 +166,17 @@ check("UDP with empty address tries the local bridge directly", wsUrls[0] === "w
 check("blocked -> falls back to the bridge's relay window", wsUrls[1] === "http://127.0.0.1:14550/relay.html");
 check("no bridge -> error names the bridge script", String(REAL["msg"].textContent || "").includes("udp_ws_bridge.py"));
 
+// A phone browser has no bridge on 127.0.0.1: say so instead of opening a dead relay window.
+const phoneUrls = [];
+for (const id of ["mav-connect", "mav-conn-type", "mav-address", "mav-baud", "msg"]) REAL[id] = realEl();
+REAL["mav-conn-type"].value = "udp"; REAL["mav-conn-type"].querySelector = () => null; REAL["mav-address"].value = ""; REAL["mav-baud"].value = "auto";
+const sandbox4 = { ...sandbox3, navigator: { ...sandbox.navigator, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) CriOS/156" },
+  MAV_TRANSPORT: { serialSupported: () => false, openWebSocket: async (u) => { phoneUrls.push(u); throw 0; }, openRelay: async (u) => { phoneUrls.push(u); throw 0; } } };
+sandbox4.window = sandbox4; sandbox4.globalThis = sandbox4; sandbox4.self = sandbox4;
+vm.runInNewContext(src, sandbox4, { filename: "app.js", timeout: 30000 });
+await REAL["mav-connect"].listeners.click();
+check("phone browser: no bridge attempt", phoneUrls.length === 0);
+check("phone browser: points to the app", String(REAL["msg"].textContent || "").includes("застосунку FMP"));
+
 console.log("\nRESULT: " + (failed ? failed + " FAILURE(S)" : "ALL CHECKS PASSED"));
 process.exit(failed ? 1 : 0);

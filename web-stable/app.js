@@ -18,7 +18,7 @@
      || /FMPiOS/.test(navigator.userAgent || ""));
   // Visible build tag so you can confirm an update actually landed (the APK does
   // NOT auto-update — you must reinstall it; the PWA updates on reopen).
-  const APP_VERSION = "2.5.91";
+  const APP_VERSION = "2.5.92";
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
@@ -3107,6 +3107,9 @@
         } else if (conn.startsWith("udp:")) {
           // A browser can't receive UDP: scripts/udp_ws_bridge.py on this computer relays it.
           // "Listen on all" (0.0.0.0) means that local bridge.
+          // A phone browser has no bridge on itself (127.0.0.1 is the phone): only the app can.
+          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent || ""))
+            return { ok: false, error: "У браузері на телефоні WiFi-зв'язку з дроном немає: браузер не приймає UDP. Підключайся із застосунку FMP (Android APK або iOS) або з браузера на комп'ютері." };
           const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, "127.0.0.1");
           try {
             // Plain WebSocket works when FMP is served by the bridge, or once Chrome lets this
