@@ -1764,7 +1764,10 @@
       try { r = await eng.exportFiles(fmt); } catch (e) { r = { ok: false, error: (e && e.message) || String(e) }; }
       if (!r || !r.ok) { setMsg((r && r.error) || t("Не вдалося зберегти."), "error"); return; }
       const where = [];
-      try { for (const f of r.files) where.push(await downloadBlob(f.name, "text/plain", f.content) || f.name); }
+      // octet-stream: Android's MediaStore appends ".txt" to text/plain with an unknown extension
+      // (mission.waypoints.txt), which QGC / Mission Planner then won't pick up.
+      const mimeOf = (n) => (/\.geojson$/i.test(n) ? "application/geo+json" : "application/octet-stream");
+      try { for (const f of r.files) where.push(await downloadBlob(f.name, mimeOf(f.name), f.content) || f.name); }
       catch (e) { setMsg(t("Не вдалося зберегти.") + " " + ((e && e.message) || e), "error"); return; }
       setMsg(t("Збережено: ") + where.join(", "), "ok");
       return;
