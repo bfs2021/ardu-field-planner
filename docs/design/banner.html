@@ -60,7 +60,7 @@ g.save(); g.translate(FC.x, FC.y); g.rotate(ROT);
 for (let i = 0; i < COLS.length - 1; i++) for (let j = 0; j < ROWS.length - 1; j++) {
   const target = COLS[i] === -FW / 2 && ROWS[j] === -FH / 2;
   const base = target ? TARGET : PAL[Math.floor(rnd() * PAL.length)];
-  const ang = target ? 0 : (rnd() < 0.5 ? 0 : Math.PI / 2);
+  const ang = target ? Math.PI / 2 : (rnd() < 0.5 ? 0 : Math.PI / 2);   // crop rows run with the passes
   field(COLS[i] + 1.5, ROWS[j] + 1.5, COLS[i + 1] - COLS[i] - 3, ROWS[j + 1] - ROWS[j] - 3, base, ang, 2.5 + rnd() * 1.2, 0.07 + rnd() * 0.05);
 }
 g.strokeStyle = "rgba(225,205,150,0.22)"; g.lineWidth = 3;
@@ -94,61 +94,32 @@ gr.addColorStop(0.74, "rgba(11,15,20,0.55)"); gr.addColorStop(1, "rgba(11,15,20,
 g.fillStyle = gr; g.fillRect(0, 0, W, H);
 
 // ---------- route ----------
-const S = 12, R = S / 2, M = 4;
+// Waypoints from FMP's own engine (backend.api.Api.build_route: this field, this cut-out,
+// 20 m swath) — see route_from_engine.py. Corners drawn with radius = swath/2 ("rounded turn").
+const ROUTE = [[162.0, 117.0], [162.0, -117.0], [150.0, -117.0], [150.0, 117.0], [138.0, 117.0], [138.0, -117.0], [126.0, -117.0], [126.0, 117.0], [114.0, 117.0], [114.0, -117.0], [102.0, -117.0], [102.0, 117.0], [90.0, 117.0], [90.0, -117.0], [78.0, -117.0], [78.0, -29.0], [66.0, -29.0], [66.0, -117.0], [54.0, -117.0], [54.0, -29.0], [42.0, -29.0], [42.0, -117.0], [30.0, -117.0], [30.0, -29.0], [18.0, -29.0], [18.0, -117.0], [6.0, -117.0], [6.0, 117.0], [-6.0, 117.0], [-6.0, -117.0], [-18.0, -117.0], [-18.0, 117.0], [-30.0, 117.0], [-30.0, -117.0], [-42.0, -117.0], [-42.0, 117.0], [-54.0, 117.0], [-54.0, -117.0], [-66.0, -117.0], [-66.0, 117.0], [-78.0, 117.0], [-78.0, -117.0], [-90.0, -117.0], [-90.0, 117.0], [-102.0, 117.0], [-102.0, -117.0], [-114.0, -117.0], [-114.0, 117.0], [-126.0, 117.0], [-126.0, -117.0], [-138.0, -117.0], [-138.0, 117.0], [-150.0, 117.0], [-150.0, -117.0], [-162.0, -117.0], [-162.0, 117.0], [18.0, 117.0], [18.0, 21.0], [30.0, 21.0], [30.0, 117.0], [42.0, 117.0], [42.0, 21.0], [54.0, 21.0], [54.0, 117.0], [66.0, 117.0], [66.0, 21.0], [78.0, 21.0], [78.0, 117.0]];
+const R = 6;
 const HOLE = { x0: ISL.x - ISL.rx - 8, x1: ISL.x + ISL.rx + 8, y0: ISL.y - ISL.ry - 8, y1: ISL.y + ISL.ry + 8 };
-const L0 = -FW / 2 + 10, L1 = FW / 2 - 10, T0 = -FH / 2 + 10, T1 = FH / 2 - 10;
-const ys = []; for (let y = T0 + R; y <= T1 - R + 0.01; y += S) ys.push(y);
-const inBand = (y) => y + R + M > HOLE.y0 && y - R - M < HOLE.y1;
-const A = L0 + R + M, B = L1 - R - M;
-const topRows = ys.filter((y) => y < HOLE.y0 && !inBand(y)), band = ys.filter(inBand), botRows = ys.filter((y) => y > HOLE.y1 && !inBand(y));
-const full = (rows) => ({ rows, a: A, b: B }), left = { rows: band, a: A, b: HOLE.x0 - R - M, outer: "a" }, right = { rows: band, a: HOLE.x1 + R + M, b: B, outer: "b" };
-
-const ops = [];   // {k:'line'|'arc'|'transit', ...}
-let cur = null;
-function runCell(c) {
-  c.rows.forEach((y, i) => {
-    // after a transit the drone arrives from the field edge (outer side) of the cell
-    const fromRight = i === 0 && c.outer ? c.outer === "b" : cur ? Math.abs(cur.x - c.b) < Math.abs(cur.x - c.a) : false;
-    const s = fromRight ? c.b : c.a, e = fromRight ? c.a : c.b;
-    if (cur) {
-      if (Math.abs(cur.x - s) < 0.01 && Math.abs(y - cur.y - S) < 0.01) ops.push({ k: "arc", cx: s, cy: y - R, right: fromRight });
-      else ops.push({ k: "transit", from: cur, to: { x: s, y } });
-    }
-    ops.push({ k: "line", x0: s, x1: e, y });
-    cur = { x: e, y };
-  });
-}
-runCell(full(topRows));
-const near = cur.x > 0 ? right : left, far = near === left ? right : left;
-runCell({ ...near, outer: null }); runCell(full(botRows)); runCell(far);
-
+const passes = ROUTE.slice(1).filter((q, i) => Math.abs(q[0] - ROUTE[i][0]) < 0.01 && Math.abs(q[1] - ROUTE[i][1]) > 2 * R).length;
+const xs = [...new Set(ROUTE.map((q) => q[0]))];
 g.save(); g.translate(FC.x, FC.y); g.rotate(ROT);
 g.strokeStyle = "#2d7ff9"; g.lineWidth = 2; g.strokeRect(-FW / 2 + 3, -FH / 2 + 3, FW - 6, FH - 6);
-
 g.strokeStyle = "rgba(95,211,163,0.85)"; g.lineWidth = 0.9;
-for (const y of ys) { g.beginPath(); g.moveTo(-FW / 2 - 7, y); g.lineTo(-FW / 2 - 1, y); g.stroke(); }
-g.fillStyle = "rgba(255,77,77,0.20)"; g.fillRect(HOLE.x0 + 2, HOLE.y0 + 2, HOLE.x1 - HOLE.x0 - 4, HOLE.y1 - HOLE.y0 - 4);
+for (const x of xs) { g.beginPath(); g.moveTo(x, FH / 2 + 1); g.lineTo(x, FH / 2 + 7); g.stroke(); }
+g.fillStyle = "rgba(255,77,77,0.20)"; g.fillRect(HOLE.x0, HOLE.y0, HOLE.x1 - HOLE.x0, HOLE.y1 - HOLE.y0);
 g.strokeStyle = "#ff4d4d"; g.lineWidth = 1.6; g.setLineDash([4, 4]);
-g.strokeRect(HOLE.x0 + 2, HOLE.y0 + 2, HOLE.x1 - HOLE.x0 - 4, HOLE.y1 - HOLE.y0 - 4); g.setLineDash([]);
-
+g.strokeRect(HOLE.x0, HOLE.y0, HOLE.x1 - HOLE.x0, HOLE.y1 - HOLE.y0); g.setLineDash([]);
 g.lineCap = "round"; g.lineJoin = "round";
-// sprayed path: one stroke, broken only by transits
 g.strokeStyle = "#ff8c2d"; g.lineWidth = 1.8; g.globalAlpha = 0.95; g.shadowColor = "rgba(255,140,45,0.55)"; g.shadowBlur = 5;
-g.beginPath(); let open = false;
-for (const o of ops) {
-  if (o.k === "line") { if (!open) { g.moveTo(o.x0, o.y); open = true; } else g.lineTo(o.x0, o.y); g.lineTo(o.x1, o.y); }
-  else if (o.k === "arc") g.arc(o.cx, o.cy, R, -Math.PI / 2, Math.PI / 2, !o.right);
-  else {                                              // transit: same route line, along the headland
-    const yH = ys.at(-1) + R + 2.5, xA = o.from.x > 0 ? B + R + 2.5 : A - R - 2.5, xB = o.to.x > 0 ? B + R + 2.5 : A - R - 2.5;
-    g.lineTo(xA, o.from.y); if (xA !== xB) { g.lineTo(xA, yH); g.lineTo(xB, yH); } g.lineTo(xB, o.to.y);
-  }
+g.beginPath(); g.moveTo(ROUTE[0][0], ROUTE[0][1]);
+for (let i = 1; i < ROUTE.length - 1; i++) {
+  const [ax, ay] = ROUTE[i - 1], [bx, by] = ROUTE[i], [cx, cy] = ROUTE[i + 1];
+  const r = Math.min(R, Math.hypot(bx - ax, by - ay) / 2, Math.hypot(cx - bx, cy - by) / 2);
+  g.arcTo(bx, by, cx, cy, r);
 }
-g.stroke(); g.shadowBlur = 0; g.globalAlpha = 1;
-g.setLineDash([]);
-const lines = ops.filter((q) => q.k === "line"), st = { x: lines[0].x0, y: lines[0].y }, en = { x: lines.at(-1).x1, y: lines.at(-1).y };
-for (const [p, c] of [[st, "#5fd3a3"], [en, "#ff7b72"]]) {
-  g.fillStyle = "#0b0f14"; g.beginPath(); g.arc(p.x, p.y, 5.4, 0, 7); g.fill();
-  g.fillStyle = c; g.beginPath(); g.arc(p.x, p.y, 3.5, 0, 7); g.fill();
+g.lineTo(ROUTE.at(-1)[0], ROUTE.at(-1)[1]); g.stroke(); g.shadowBlur = 0; g.globalAlpha = 1;
+for (const [p, c] of [[ROUTE[0], "#5fd3a3"], [ROUTE.at(-1), "#ff7b72"]]) {
+  g.fillStyle = "#0b0f14"; g.beginPath(); g.arc(p[0], p[1], 5.4, 0, 7); g.fill();
+  g.fillStyle = c; g.beginPath(); g.arc(p[0], p[1], 3.5, 0, 7); g.fill();
 }
 g.restore();
 
@@ -163,7 +134,7 @@ Promise.all([document.fonts.load("700 10px IS"), document.fonts.load("10px PM")]
   g.beginPath(); g.moveTo(tr.x + 3, tr.y + 2); g.lineTo(tr.x + 20, tr.y + 19); g.lineTo(tr.x + 36, tr.y + 19); g.stroke();
   g.fillText("48.381° N  32.619° E", tr.x + 40, tr.y + 22);
   const bl = P(-FW / 2, FH / 2);
-  g.fillText(`SWATH 20 m  ·  ${ys.length} PASSES  ·  CUT-OUT AVOIDED`, bl.x + 4, bl.y + 24);
+  g.fillText(`SWATH 20 m  ·  ${passes} PASSES  ·  CUT-OUT AVOIDED`, bl.x + 4, bl.y + 24);
   const sx = 1166, sy = 380;
   g.fillRect(sx, sy, 62, 1.3); g.fillRect(sx, sy - 4, 1.2, 5); g.fillRect(sx + 61, sy - 4, 1.2, 5);
   g.fillText("100 m", sx + 16, sy - 7);
