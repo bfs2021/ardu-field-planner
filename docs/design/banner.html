@@ -140,18 +140,12 @@ g.beginPath(); let open = false;
 for (const o of ops) {
   if (o.k === "line") { if (!open) { g.moveTo(o.x0, o.y); open = true; } else g.lineTo(o.x0, o.y); g.lineTo(o.x1, o.y); }
   else if (o.k === "arc") g.arc(o.cx, o.cy, R, -Math.PI / 2, Math.PI / 2, !o.right);
-  else { g.stroke(); g.beginPath(); open = false; }
+  else {                                              // transit: same route line, along the headland
+    const yH = ys.at(-1) + R + 2.5, xA = o.from.x > 0 ? B + R + 2.5 : A - R - 2.5, xB = o.to.x > 0 ? B + R + 2.5 : A - R - 2.5;
+    g.lineTo(xA, o.from.y); if (xA !== xB) { g.lineTo(xA, yH); g.lineTo(xB, yH); } g.lineTo(xB, o.to.y);
+  }
 }
 g.stroke(); g.shadowBlur = 0; g.globalAlpha = 1;
-// safe transit: dashed, along the headland outside the passes, never over the cut-out
-g.strokeStyle = "#ff8c2d"; g.lineWidth = 1.3; g.setLineDash([4, 4]);
-for (const o of ops.filter((q) => q.k === "transit")) {
-  // hug the U-turns, inside the pass boundary
-  const yH = ys.at(-1) + R + 2.5, xA = o.from.x > 0 ? B + R + 2.5 : A - R - 2.5, xB = o.to.x > 0 ? B + R + 2.5 : A - R - 2.5;
-  g.beginPath(); g.moveTo(o.from.x, o.from.y); g.lineTo(xA, o.from.y);
-  if (xA !== xB) { g.lineTo(xA, yH); g.lineTo(xB, yH); }
-  g.lineTo(xB, o.to.y); g.lineTo(o.to.x, o.to.y); g.stroke();
-}
 g.setLineDash([]);
 const lines = ops.filter((q) => q.k === "line"), st = { x: lines[0].x0, y: lines[0].y }, en = { x: lines.at(-1).x1, y: lines.at(-1).y };
 for (const [p, c] of [[st, "#5fd3a3"], [en, "#ff7b72"]]) {
