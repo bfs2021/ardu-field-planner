@@ -123,33 +123,38 @@ const near = cur.x > 0 ? right : left, far = near === left ? right : left;
 runCell({ ...near, outer: null }); runCell(full(botRows)); runCell(far);
 
 g.save(); g.translate(FC.x, FC.y); g.rotate(ROT);
-g.strokeStyle = "#8ff0b0"; g.lineWidth = 1.5; g.strokeRect(-FW / 2 + 3, -FH / 2 + 3, FW - 6, FH - 6);
-g.strokeStyle = "rgba(143,240,176,0.8)"; g.lineWidth = 0.9;
+g.fillStyle = "rgba(45,127,249,0.20)"; g.fillRect(-FW / 2 + 3, -FH / 2 + 3, FW - 6, FH - 6);
+g.strokeStyle = "#2d7ff9"; g.lineWidth = 2; g.strokeRect(-FW / 2 + 3, -FH / 2 + 3, FW - 6, FH - 6);
+// pass boundary (half a swath in from the edge) — app inset layer
+g.strokeStyle = "#5fd3a3"; g.lineWidth = 1.2; g.setLineDash([6, 5]); g.strokeRect(L0 - 3, T0 - 3, L1 - L0 + 6, T1 - T0 + 6); g.setLineDash([]);
+g.strokeStyle = "rgba(95,211,163,0.85)"; g.lineWidth = 0.9;
 for (const y of ys) { g.beginPath(); g.moveTo(-FW / 2 - 7, y); g.lineTo(-FW / 2 - 1, y); g.stroke(); }
-g.strokeStyle = "#ff8a7a"; g.lineWidth = 1.3; g.setLineDash([4, 3]);
+g.fillStyle = "rgba(255,77,77,0.20)"; g.fillRect(HOLE.x0 + 2, HOLE.y0 + 2, HOLE.x1 - HOLE.x0 - 4, HOLE.y1 - HOLE.y0 - 4);
+g.strokeStyle = "#ff4d4d"; g.lineWidth = 1.6; g.setLineDash([4, 4]);
 g.strokeRect(HOLE.x0 + 2, HOLE.y0 + 2, HOLE.x1 - HOLE.x0 - 4, HOLE.y1 - HOLE.y0 - 4); g.setLineDash([]);
 
 g.lineCap = "round"; g.lineJoin = "round";
 // sprayed path: one stroke, broken only by transits
-g.strokeStyle = "#62a8ff"; g.lineWidth = 1.6; g.shadowColor = "rgba(98,168,255,0.6)"; g.shadowBlur = 5;
+g.strokeStyle = "#ff8c2d"; g.lineWidth = 1.8; g.globalAlpha = 0.95; g.shadowColor = "rgba(255,140,45,0.55)"; g.shadowBlur = 5;
 g.beginPath(); let open = false;
 for (const o of ops) {
   if (o.k === "line") { if (!open) { g.moveTo(o.x0, o.y); open = true; } else g.lineTo(o.x0, o.y); g.lineTo(o.x1, o.y); }
   else if (o.k === "arc") g.arc(o.cx, o.cy, R, -Math.PI / 2, Math.PI / 2, !o.right);
   else { g.stroke(); g.beginPath(); open = false; }
 }
-g.stroke(); g.shadowBlur = 0;
+g.stroke(); g.shadowBlur = 0; g.globalAlpha = 1;
 // safe transit: dashed, along the headland outside the passes, never over the cut-out
-g.strokeStyle = "rgba(255,255,255,0.85)"; g.lineWidth = 1.1; g.setLineDash([2, 4]);
+g.strokeStyle = "#ff8c2d"; g.lineWidth = 1.3; g.setLineDash([4, 4]);
 for (const o of ops.filter((q) => q.k === "transit")) {
-  const yH = T1 - 1, xA = o.from.x > 0 ? L1 - 1 : L0 + 1, xB = o.to.x > 0 ? L1 - 1 : L0 + 1;
+  // hug the U-turns, inside the pass boundary
+  const yH = ys.at(-1) + R + 2.5, xA = o.from.x > 0 ? B + R + 2.5 : A - R - 2.5, xB = o.to.x > 0 ? B + R + 2.5 : A - R - 2.5;
   g.beginPath(); g.moveTo(o.from.x, o.from.y); g.lineTo(xA, o.from.y);
   if (xA !== xB) { g.lineTo(xA, yH); g.lineTo(xB, yH); }
   g.lineTo(xB, o.to.y); g.lineTo(o.to.x, o.to.y); g.stroke();
 }
 g.setLineDash([]);
 const lines = ops.filter((q) => q.k === "line"), st = { x: lines[0].x0, y: lines[0].y }, en = { x: lines.at(-1).x1, y: lines.at(-1).y };
-for (const [p, c] of [[st, "#8ff0b0"], [en, "#ff8a7a"]]) {
+for (const [p, c] of [[st, "#5fd3a3"], [en, "#ff7b72"]]) {
   g.fillStyle = "#0b0f14"; g.beginPath(); g.arc(p.x, p.y, 5.4, 0, 7); g.fill();
   g.fillStyle = c; g.beginPath(); g.arc(p.x, p.y, 3.5, 0, 7); g.fill();
 }
@@ -173,10 +178,10 @@ Promise.all([document.fonts.load("700 10px IS"), document.fonts.load("10px PM")]
 
   g.fillStyle = "rgba(160,174,190,0.6)"; g.font = "10px PM"; g.fillText("ARDUPILOT  ·  AGRICULTURAL SPRAYING", 73, 104);
   g.fillStyle = "#f1f5f9"; g.font = "700 56px IS"; g.fillText("Field Mission Planner", 70, 170);
-  g.fillStyle = "#62a8ff"; g.fillRect(73, 194, 56, 3);
+  g.fillStyle = "#2d7ff9"; g.fillRect(73, 194, 56, 3);
   g.fillStyle = "rgba(226,232,240,0.95)"; g.font = `400 22px ${SYS}`; g.fillText("Spray routes for ArduPilot drones", 72, 238);
   g.fillStyle = "rgba(160,174,190,0.92)"; g.font = `400 17px ${SYS}`; g.fillText("Маршрути обприскування для дронів ArduPilot", 72, 266);
-  g.fillStyle = "rgba(143,240,176,0.92)"; g.font = "11px PM";
+  g.fillStyle = "rgba(95,211,163,0.95)"; g.font = "11px PM";
   g.fillText("OFFLINE  ·  PHONE · PC · BROWSER  ·  FREE · GPLv3", 73, 318);
   document.title = "ready";
 });
