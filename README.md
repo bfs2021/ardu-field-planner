@@ -1,18 +1,13 @@
-# Field Mission Planner
+<p align="center"><img src="docs/banner.jpg" alt="Field Mission Planner — spray routes for ArduPilot drones"></p>
 
-**Spray routes for ArduPilot drones — draw the field on your phone, fly it. Free, offline, no DJI lock-in.**
+<p align="center"><b>English</b> · <a href="README.uk.md">Українська</a></p>
 
-**English** · [Українська](README.uk.md)
+<p align="center"><b>Draw the field on your phone, fly it. Free, offline, no DJI lock-in.</b></p>
 
-![Field Mission Planner — spray route over a field, around a tree island](docs/banner.jpg)
-
-[![Open in browser](https://img.shields.io/badge/▶_Open_in_browser-no_install-2ea44f?style=for-the-badge)](https://tecelskyyivan-alt.github.io/ardu-field-planner/)
-[![Download APK](https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=Android%20APK&style=for-the-badge)](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest)
-
-[![tests](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml)
-[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-
-![Field Mission Planner: a 77 ha field between windbreaks, spray passes ready to fly](docs/screenshot.jpg)
+<p align="center">
+  <a href="https://tecelskyyivan-alt.github.io/ardu-field-planner/"><img src="https://img.shields.io/badge/▶_Open_in_browser-no_install-2ea44f?style=for-the-badge" alt="open"></a>
+  <a href="https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest"><img src="https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=Android%20APK&style=for-the-badge" alt="apk"></a>
+</p>
 
 ## Who it is for
 
@@ -27,6 +22,9 @@ you are tired of:
 FMP plans the spray route on the phone you already have and flies it over MAVLink.
 
 ## What it does
+
+![The real app: a 77 ha field between windbreaks, route ready to fly](docs/screenshot.jpg)
+<sub>The real app in the browser — a 77 ha field between windbreaks, route built and ready to upload.</sub>
 
 **Plan**
 - Draw the field on a satellite map; drag vertices and the route rebuilds live.
@@ -116,6 +114,7 @@ Drone model and field size help, but a one-line answer is already useful.
 
 ---
 
+[![tests](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml) ·
 [Changelog / releases](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases) ·
 [Development](docs/DEVELOPMENT.md) ·
 [ELRS backpack setup](docs/elrs-backpack-browser.md) ·
