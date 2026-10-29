@@ -1,0 +1,38 @@
+name: 🐞 Something went wrong / Щось не так
+description: The app, the route or the drone link did not behave as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened? / Що сталося?
+      description: What you did and what you expected / Що робив і що очікував
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where? / Де?
+      options: [Browser on PC, Browser on Android, Browser on iPhone, Android APK, Desktop from source]
+    validations:
+      required: true
+  - type: dropdown
+    id: link
+    attributes:
+      label: Drone link / Зв'язок з дроном
+      options: [Not connected / Без дрона, USB cable, WiFi (ELRS backpack), Bluetooth]
+  - type: input
+    id: version
+    attributes:
+      label: App version / Версія
+      description: Shown under the title, e.g. v2.5.97 / Під назвою, напр. v2.5.97
+  - type: input
+    id: drone
+    attributes:
+      label: Drone & firmware / Дрон і прошивка
+      placeholder: e.g. hexa sprayer, Pixhawk 6C, ArduCopter 4.6
+  - type: textarea
+    id: log
+    attributes:
+      label: Log / Лог
+      description: In the app — "Log for analysis" → save, then attach here / У застосунку «Лог для аналізу» → зберегти й прикріпити
