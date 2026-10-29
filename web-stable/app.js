@@ -181,6 +181,9 @@
     // Skip the zoom animation for big jumps (>2 levels) — the tween of a canvas full
     // of vectors is where the stutter shows on weaker phones.
     zoomAnimationThreshold: 2,
+    // Desktop: quarter-level zoom steps so a trackpad pinch/scroll zooms smoothly instead
+    // of jumping a whole level at a time. Phones keep whole levels (tuned for weak GPUs).
+    zoomSnap: L.Browser.mobile ? 1 : 0.25,
     // fadeAnimation off: the per-tile fade-in (×2 stacked layers: satellite + the
     // labels overlay) reads as "map blinking" on weak/hybrid-GPU compositing (the
     // Optimus laptop). Tiles just appear — snappier and no flicker.
@@ -238,7 +241,9 @@
   // mid-drag/zoom — wait until the gesture SETTLES (updateWhenIdle) — and keep a small
   // off-screen buffer so a short pan doesn't blank. This is the main pan-lag fix: the
   // default was loading tiles every frame during a drag, which janks on phones.
-  const TP = { updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 2 };
+  // Desktop (mouse) keeps loading tiles DURING a drag (Leaflet's own desktop default):
+  // idle-only loading there left 56–73% of the map grey until the button was released.
+  const TP = { updateWhenIdle: L.Browser.mobile, updateWhenZooming: false, keepBuffer: L.Browser.mobile ? 2 : 4 };
   const esriSat = L.tileLayer(TILE_URLS.esri,
     { ...TP, maxZoom: 21, maxNativeZoom: 19, noWrap: true, attribution: "Esri World Imagery" }
   );
