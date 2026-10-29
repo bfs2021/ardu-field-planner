@@ -14,7 +14,7 @@
 <!-- Opened as a popup by FMP on GitHub Pages: Chrome blocks a public page from reaching
      127.0.0.1 (Local Network Access), but this page is served BY the bridge
      (scripts/udp_ws_bridge.py), so it may open the WebSocket and relay bytes via postMessage. -->
-<div><b>FMP: зв'язок із дроном</b> — не закривай це вікно під час польоту.</div>
+<div><b>FMP: зв'язок із дроном</b> — не закривай цю вкладку, поки FMP відкритий (закриється сама разом із ним).</div>
 <div id="st">Підключаюсь до моста…</div>
 <script>
   "use strict";
@@ -43,7 +43,12 @@
     else if (ev.data.fmp === "close" && ev.origin === peer) window.close();
   });
 
-  setInterval(() => { if (peer && ws.readyState === 1) show("Дрон ↔ FMP: прийнято " + rx + ", надіслано " + tx + " пакетів."); }, 1000);
+  setInterval(() => {
+    if (!window.opener || window.opener.closed) { window.close(); return; }   // FMP tab gone
+    // Let a reloaded FMP find this window instead of opening another one.
+    if (ws.readyState === 1) for (const o of ALLOWED) if (o !== location.origin) window.opener.postMessage({ fmp: "here" }, o);
+    if (peer && ws.readyState === 1) show("Дрон ↔ FMP: прийнято " + rx + ", надіслано " + tx + " пакетів.");
+  }, 1000);
 </script>
 </body>
 </html>

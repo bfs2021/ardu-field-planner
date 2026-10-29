@@ -31,8 +31,21 @@
   // popup: relay.html served by scripts/udp_ws_bridge.py holds the WebSocket and
   // passes bytes through postMessage. Must be called inside the click (popup blocker).
   let relayWin = null;
+  // A relay window left open by an earlier page load (or connect) announces itself every
+  // second; reusing it means no new tab/window and no jump to it.
+  function findRelay(origin, ms) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => { window.removeEventListener("message", onHere); resolve(null); }, ms);
+      function onHere(ev) {
+        if (ev.origin !== origin || !ev.data || ev.data.fmp !== "here") return;
+        clearTimeout(timer); window.removeEventListener("message", onHere); resolve(ev.source);
+      }
+      window.addEventListener("message", onHere);
+    });
+  }
   async function openRelay(pageUrl) {
     const origin = new URL(pageUrl).origin;
+    if (!relayWin || relayWin.closed) relayWin = await findRelay(origin, 1200);
     // Small, in the bottom-right corner; FMP takes the focus back once the link is up.
     const left = (screen.availLeft || 0) + screen.availWidth - 340, top = (screen.availTop || 0) + screen.availHeight - 150;
     if (!relayWin || relayWin.closed)
@@ -42,7 +55,7 @@
     const t = {
       ondata: null,
       write(bytes) { if (!w.closed) w.postMessage({ fmp: "tx", data: bytes }, origin); },
-      close() { window.removeEventListener("message", onMsg); try { w.postMessage({ fmp: "close" }, origin); } catch (e) {} },
+      close() { window.removeEventListener("message", onMsg); },   // the window stays for the next connect
     };
     function onMsg(ev) {
       if (ev.origin !== origin || ev.source !== w || !ev.data) return;
