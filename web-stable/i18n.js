@@ -64,6 +64,8 @@ window.FMP_TR = {
   "UDP (мережа / SITL)": "UDP (network / SITL)",
   "Адреса (host:port) — авто": "Address (host:port) — auto",
   "авто: 0.0.0.0:14550": "auto: 0.0.0.0:14550",
+  "Офлайн-рушій не зміг побудувати маршрут: ": "The offline engine could not build the route: ",
+  "Зв'язок перервався, поки екран був вимкнений — перепідключаюсь…": "The link dropped while the screen was off — reconnecting…",
   "Порожнє = слухати всі мережі на 14550.": "Empty = listen on all interfaces on 14550.",
   "Швидкість (baud)": "Baud rate",
   "Підключити": "Connect",

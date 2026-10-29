@@ -20,7 +20,7 @@ from .coverage import (
     coverage_metrics, split_field_by_line, overlap_optimal_angle, mission_overlap,
     return_corridor_route, coverage_overlap_geo, safe_transit,
 )
-from .geo import centroid, path_length, haversine
+from .geo import centroid, path_length, haversine, latlon_to_local
 from .plane_turns import add_plane_turns, plane_turn_params
 from .mission import (
     to_waypoints, to_plan,
@@ -29,6 +29,9 @@ from .mission import (
 
 #: ArduCopter 4.7.0 default WP_RADIUS_M — what a copter upload restores when round-turn is OFF.
 COPTER_WP_RADIUS_DEFAULT_M = 2.0
+# A contour drawn on a zoomed-out map (a whole region) is not a field: the sweep runs for
+# minutes, no flight controller holds the mission, and GEOS in the browser engine crashes.
+MAX_FIELD_HA = 10000.0
 
 
 class Api:
@@ -94,6 +97,11 @@ class Api:
             boundary = [(float(p["lat"]), float(p["lng"])) for p in params["boundary"]]
             if len(boundary) < 3:
                 return {"ok": False, "error": "Потрібно щонайменше 3 точки полігону."}
+            lat0, lon0 = centroid(boundary)
+            xy = [latlon_to_local(la, lo, lat0, lon0) for la, lo in boundary]
+            field_ha = abs(sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(xy, xy[1:] + xy[:1]))) / 2 / 1e4
+            if field_ha > MAX_FIELD_HA:
+                return {"ok": False, "error": "Поле завелике: %.0f га (межа %.0f га). Схоже, контур намальовано на віддаленій карті — наблизь карту до поля й намалюй контур ще раз." % (field_ha, MAX_FIELD_HA)}
 
             spacing = float(params.get("spacing", 20))
             angle = float(params.get("angle", 0))
@@ -623,70 +631,65 @@ class Api:
             return {"ok": False, "error": str(exc)}
 
     # --------------------------------------------------------------- exports
-    def export(self, fmt):
-        """Save the last-built mission as .waypoints or .plan via a save dialog."""
+    def export_files(self, fmt):
+        """Build export file contents without writing them: [{name, content}].
+        Missions split into battery flights give one file per flight (mission_f1, _f2, …).
+        Used by the browser/APK engine (download) and by export() (desktop save dialog)."""
         if not self._state:
             return {"ok": False, "error": "Спочатку побудуй маршрут."}
-        # Everything (content build, dialog, write) is guarded so a builder/dialog
-        # error returns JSON instead of escaping as a bare HTTP 500.
         try:
             s = self._state
-            flights = s.get("flights") or [s["waypoints"]]
-            if fmt in ("waypoints", "plan") and len(flights) > 1:
-                return self._export_flights(fmt, s, flights)
-            if fmt == "waypoints":
-                content = to_waypoints(s["home"], s["takeoff_alt"], s["waypoints"],
-                                       s["wp_alt"], s["rtl"])
-                default = "mission.waypoints"
-            elif fmt == "plan":
-                content = to_plan(s["home"], s["takeoff_alt"], s["waypoints"],
-                                  s["wp_alt"], s["rtl"], cruise_speed=s["speed"])
-                default = "mission.plan"
-            elif fmt == "fence_plan":
-                content = to_geofence_plan(s["contour"], s["home"], s.get("exclusions"))
-                default = "field_fence.plan"
-            elif fmt == "fence_mp":
-                content = to_fence_mp(s["contour"])
-                default = "field.fence"
-            elif fmt == "contour_geojson":
-                content = to_contour_geojson(s["contour"])
-                default = "field_contour.geojson"
-            else:
-                return {"ok": False, "error": f"Невідомий формат: {fmt}"}
-
-            path = self._save_dialog(default)
-            if not path:
-                return {"ok": False, "cancelled": True}
-            with open(path, "w", encoding="utf-8", newline="\n") as f:
-                f.write(content)
-            return {"ok": True, "path": path}
+            if fmt in ("waypoints", "plan"):
+                flights = s.get("flights") or [s["waypoints"]]
+                files = []
+                for i, fl in enumerate(flights, 1):
+                    if fmt == "waypoints":
+                        content = to_waypoints(s["home"], s["takeoff_alt"], fl, s["wp_alt"], s["rtl"])
+                    else:
+                        content = to_plan(s["home"], s["takeoff_alt"], fl, s["wp_alt"], s["rtl"],
+                                          cruise_speed=s["speed"])
+                    name = f"mission.{fmt}" if len(flights) == 1 else f"mission_f{i}.{fmt}"
+                    files.append({"name": name, "content": content})
+                return {"ok": True, "files": files}
+            if fmt == "fence_plan":
+                return {"ok": True, "files": [{"name": "field_fence.plan",
+                        "content": to_geofence_plan(s["contour"], s["home"], s.get("exclusions"))}]}
+            if fmt == "fence_mp":
+                return {"ok": True, "files": [{"name": "field.fence", "content": to_fence_mp(s["contour"])}]}
+            if fmt == "contour_geojson":
+                return {"ok": True, "files": [{"name": "field_contour.geojson",
+                        "content": to_contour_geojson(s["contour"])}]}
+            return {"ok": False, "error": f"Невідомий формат: {fmt}"}
         except Exception as exc:
             return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
-    def _export_flights(self, fmt, s, flights):
-        """Write one mission file per battery flight (mission_f1, _f2, …)."""
+    def export(self, fmt):
+        """Save the last-built mission / contour via a save dialog (desktop)."""
+        r = self.export_files(fmt)
+        if not r.get("ok"):
+            return r
+        files = r["files"]
         try:
-            ext = "waypoints" if fmt == "waypoints" else "plan"
+            if len(files) == 1:
+                path = self._save_dialog(files[0]["name"])
+                if not path:
+                    return {"ok": False, "cancelled": True}
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(files[0]["content"])
+                return {"ok": True, "path": path}
+            # One file per battery flight, named after the chosen base: <base>_f1.<ext>, …
+            ext = fmt
             base = self._save_dialog(f"mission.{ext}")
             if not base:
                 return {"ok": False, "cancelled": True}
             root = os.path.splitext(base)[0]
-            paths = []
-            for i, fl in enumerate(flights, 1):
-                if fmt == "waypoints":
-                    content = to_waypoints(s["home"], s["takeoff_alt"], fl, s["wp_alt"], s["rtl"])
-                else:
-                    content = to_plan(s["home"], s["takeoff_alt"], fl, s["wp_alt"], s["rtl"],
-                                      cruise_speed=s["speed"])
-                p = f"{root}_f{i}.{ext}"
-                with open(p, "w", encoding="utf-8", newline="\n") as f:
-                    f.write(content)
-                paths.append(p)
+            for i, fl in enumerate(files, 1):
+                with open(f"{root}_f{i}.{ext}", "w", encoding="utf-8", newline="\n") as f:
+                    f.write(fl["content"])
             name = os.path.basename(root)
-            return {"ok": True,
-                    "path": f"{len(paths)} файлів: {name}_f1..{len(paths)}.{ext}"}
+            return {"ok": True, "path": f"{len(files)} файлів: {name}_f1..{len(files)}.{ext}"}
         except Exception as exc:
-            return {"ok": False, "error": str(exc)}
+            return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
     def _save_dialog(self, default_name):
         if not self.window:

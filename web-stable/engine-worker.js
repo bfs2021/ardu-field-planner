@@ -43,10 +43,18 @@ self.onmessage = async (e) => {
       py.globals.set("_pj", JSON.stringify(params));
       const out = py.runPython("import json as _j; _j.dumps(_api.safe_transit(_j.loads(_pj)))");
       self.postMessage({ id, ok: true, result: JSON.parse(out) });
+    } else if (type === "export") {
+      py.globals.set("_pj", JSON.stringify(params));
+      const out = py.runPython("import json as _j; _j.dumps(_api.export_files(_j.loads(_pj)))");
+      self.postMessage({ id, ok: true, result: JSON.parse(out) });
     } else {
       self.postMessage({ id, ok: false, error: "unknown message: " + type });
     }
   } catch (err) {
-    self.postMessage({ id, ok: false, error: String((err && err.message) || err) });
+    // A C++ exception (e.g. GEOS TopologyException) leaves Pyodide "fatally failed": every
+    // later call throws too. Tell the page, which restarts this worker.
+    let fatal = false;
+    try { if (py) py.runPython("1"); } catch (e2) { fatal = true; }
+    self.postMessage({ id, ok: false, fatal, error: String((err && err.message) || err) });
   }
 };
