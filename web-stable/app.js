@@ -3102,8 +3102,14 @@
           // no USB to the FC). Listens on the given port; learns the backpack peer.
           const port = parseInt(conn.split(":").pop(), 10) || 14550;
           transport = await MAV_TRANSPORT.openIosUdp(port);
-        } else if (conn.startsWith("tcp:") || conn.startsWith("udp:")) {
-          transport = await MAV_TRANSPORT.openWebSocket("ws://" + conn.replace(/^(tcp|udp):/, ""));
+        } else if (conn.startsWith("udp:")) {
+          // A browser can't receive UDP: scripts/udp_ws_bridge.py on this computer relays it.
+          // "Listen on all" (0.0.0.0) means that local bridge.
+          const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, "127.0.0.1");
+          try { transport = await MAV_TRANSPORT.openWebSocket("ws://" + addr); }
+          catch (e) { return { ok: false, error: "Браузер не приймає UDP напряму. Запусти на цьому комп'ютері міст: python3 scripts/udp_ws_bridge.py (з репозиторію FMP), тоді «Підключити» ще раз. Або під'єднайся кабелем." }; }
+        } else if (conn.startsWith("tcp:")) {
+          transport = await MAV_TRANSPORT.openWebSocket("ws://" + conn.slice(4));
         } else if (IS_ANDROID) {
           // `conn` is the deviceId chosen in the port dropdown (or "cable"/empty
           // -> the bridge falls back to the only attached device). USB CDC ignores

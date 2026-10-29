@@ -150,5 +150,17 @@ check("posted as text/plain (no CORS preflight)", !!p && p.opt.headers["Content-
 let payload = {}; try { payload = JSON.parse(p.opt.body); } catch (e) {}
 check("payload carries the log and the version", typeof payload.log === "string" && payload.log.includes("діагностичний лог") && !!payload.version);
 
+// ---- UDP in a desktop browser: empty address = auto -> the local bridge (scripts/udp_ws_bridge.py)
+const wsUrls = [];
+for (const id of ["mav-connect", "mav-conn-type", "mav-address", "mav-baud", "msg"]) REAL[id] = realEl();
+REAL["mav-conn-type"].value = "udp"; REAL["mav-conn-type"].querySelector = () => null; REAL["mav-address"].value = ""; REAL["mav-baud"].value = "auto";
+const sandbox3 = { ...sandbox, MAV_TRANSPORT: { serialSupported: () => false,
+  openWebSocket: async (u) => { wsUrls.push(u); throw new Error("no bridge"); } } };
+sandbox3.window = sandbox3; sandbox3.globalThis = sandbox3; sandbox3.self = sandbox3;
+vm.runInNewContext(src, sandbox3, { filename: "app.js", timeout: 30000 });
+await REAL["mav-connect"].listeners.click();
+check("UDP with empty address goes to the local bridge", wsUrls[0] === "ws://127.0.0.1:14550");
+check("no bridge -> error names the bridge script", String(REAL["msg"].textContent || "").includes("udp_ws_bridge.py"));
+
 console.log("\nRESULT: " + (failed ? failed + " FAILURE(S)" : "ALL CHECKS PASSED"));
 process.exit(failed ? 1 : 0);
