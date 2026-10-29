@@ -29,7 +29,7 @@ ESP-based TX module, TX/RX firmware **3.5.0+**, TX Backpack **1.5.0+**.
    directly. Keep that window open; allow pop-ups for the site if Chrome blocks it.
    FMP can also be opened from the bridge itself at http://127.0.0.1:14550 (no window).
    The Android and iOS apps need no bridge.
-   **Phone browser (no app):** a phone can't run the bridge, but it can use the one on a
+   **Phone browser (no app):** without a computer, flash the backpack with WebSocket support ([elrs-backpack-browser.md](elrs-backpack-browser.md)). Or use the bridge on a
    computer on the same WiFi: start it with `--lan`, then open the address it prints,
    `http://<computer IP>:14550`, on the phone. Plain http on your own network: location
    ("my position") may not work there, and anyone on that WiFi can reach the drone.

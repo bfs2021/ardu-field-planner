@@ -1,0 +1,222 @@
+From 8b7796aad6abcd1914b69e73f672351a48d69747 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=D0=86=D0=B2=D0=B0=D0=BD=20=D0=A2=D0=B5=D1=81=D0=B5=D0=BB?=
+ =?UTF-8?q?=D1=8C=D1=81=D1=8C=D0=BA=D0=B8=D0=B9?= <tecelskyyivan@gmail.com>
+Date: Thu, 29 Oct 2026 20:20:44 +0200
+Subject: [PATCH] TX backpack: MAVLink over WebSocket (/mavlink-ws) +
+ /fmp-relay.html for browser GCS
+
+A phone browser can't do UDP; FMP on GitHub Pages opens /fmp-relay.html from the
+backpack as a window, which holds the WebSocket and relays bytes via postMessage.
+WS accepts only same-origin pages on an IP/.local host (or non-browser clients).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ html/fmp-relay.html  | 45 +++++++++++++++++++++++++
+ lib/WIFI/devWIFI.cpp | 80 ++++++++++++++++++++++++++++++++++++++++++++
+ python/build_html.py |  1 +
+ 3 files changed, 126 insertions(+)
+ create mode 100644 html/fmp-relay.html
+
+diff --git a/html/fmp-relay.html b/html/fmp-relay.html
+new file mode 100644
+index 0000000..f41de27
+--- /dev/null
++++ b/html/fmp-relay.html
+@@ -0,0 +1,45 @@
++<!doctype html>
++<html>
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>FMP - drone link</title>
++<style>body{margin:0;padding:16px;font:14px/1.4 system-ui,sans-serif;background:#111827;color:#e5e7eb}b{color:#34d399}.err{color:#f87171}</style>
++</head>
++<body>
++<!-- Opened as a popup by Field Mission Planner (GitHub Pages). A browser can't speak UDP and an
++     https page may not open ws:// to the LAN, but this page is served BY the backpack, so it holds
++     the MAVLink WebSocket and relays bytes through postMessage. Same protocol as FMP's relay.html. -->
++<div><b>FMP: drone link</b> - keep this tab open while FMP is open (it closes with FMP).</div>
++<div id="st">Connecting to the backpack...</div>
++<script>
++"use strict";
++var ALLOWED = ["https://tecelskyyivan-alt.github.io", location.origin];
++var st = document.getElementById("st");
++var peer = null, ws = null, rx = 0, tx = 0;
++function show(text, err) { st.textContent = text; st.className = err ? "err" : ""; }
++function ready() { if (peer && ws && ws.readyState === 1) window.opener.postMessage({ fmp: "ready" }, peer); }
++ws = new WebSocket("ws://" + location.host + "/mavlink-ws");
++ws.binaryType = "arraybuffer";
++ws.onopen = function () { show("Backpack connected, waiting for FMP..."); ready(); };
++ws.onerror = function () { show("Backpack MAVLink WebSocket not answering. Backpack -> Telemetry must be WiFi.", true); };
++ws.onclose = function () { show("Link to the backpack closed.", true); if (peer && window.opener) window.opener.postMessage({ fmp: "closed" }, peer); };
++ws.onmessage = function (ev) {
++  rx++;
++  if (peer && window.opener) window.opener.postMessage({ fmp: "rx", data: ev.data }, peer, [ev.data]);
++};
++window.addEventListener("message", function (ev) {
++  if (ALLOWED.indexOf(ev.origin) < 0 || !ev.data) return;
++  if (ev.data.fmp === "hello") { peer = ev.origin; ready(); try { window.opener.focus(); } catch (e) {} }
++  else if (ev.data.fmp === "tx" && ev.origin === peer && ws.readyState === 1) { ws.send(ev.data.data); tx++; }
++  else if (ev.data.fmp === "close" && ev.origin === peer) window.close();
++});
++setInterval(function () {
++  if (!window.opener || window.opener.closed) { window.close(); return; }
++  /* Let a reloaded FMP find this window instead of opening another one. */
++  if (ws.readyState === 1) for (var i = 0; i < ALLOWED.length; i++) if (ALLOWED[i] !== location.origin) window.opener.postMessage({ fmp: "here" }, ALLOWED[i]);
++  if (peer && ws.readyState === 1) show("Drone <-> FMP: received " + rx + ", sent " + tx + " packets.");
++}, 1000);
++</script>
++</body>
++</html>
+diff --git a/lib/WIFI/devWIFI.cpp b/lib/WIFI/devWIFI.cpp
+index cbf8948..5455d8f 100644
+--- a/lib/WIFI/devWIFI.cpp
++++ b/lib/WIFI/devWIFI.cpp
+@@ -117,6 +117,21 @@ WiFiUDP mavlinkUDP;
+ 
+ IPAddress gcsIP;
+ bool gcsIPSet = false;
++
++// MAVLink over WebSocket for browser GCS (Field Mission Planner): a phone browser can't do UDP,
++// so /fmp-relay.html (served from here) holds this socket. Uplink bytes are queued in the
++// async callback and written to the UART from the main loop, like the UDP path.
++static AsyncWebSocket mavWs("/mavlink-ws");
++static uint8_t mavWsUplink[1024];
++static uint16_t mavWsUplinkLen = 0;
++#if defined(PLATFORM_ESP32)
++static portMUX_TYPE mavWsMux = portMUX_INITIALIZER_UNLOCKED;
++#define MAVWS_LOCK() portENTER_CRITICAL(&mavWsMux)
++#define MAVWS_UNLOCK() portEXIT_CRITICAL(&mavWsMux)
++#else
++#define MAVWS_LOCK()
++#define MAVWS_UNLOCK()
++#endif
+ #endif
+ 
+ #if defined(TARGET_TX_BACKPACK)
+@@ -210,6 +225,36 @@ static bool captivePortal(AsyncWebServerRequest *request)
+   return false;
+ }
+ 
++#if defined(MAVLINK_ENABLED)
++static void onMavWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
++{
++  if (type == WS_EVT_CONNECT)
++  {
++    // Browsers send Origin: only pages served by this backpack, opened by IP or mDNS name
++    // (a rebound DNS name or another site must not drive the drone). No Origin = not a browser.
++    AsyncWebServerRequest *request = (AsyncWebServerRequest *)arg;
++    String host = request->host();
++    bool hostOk = isIp(host) || host.endsWith(".local");
++    if (!hostOk || (request->hasHeader("Origin") && request->header("Origin") != "http://" + host))
++    {
++      client->close();
++      return;
++    }
++    server->cleanupClients(2);
++  }
++  else if (type == WS_EVT_DATA)
++  {
++    MAVWS_LOCK();
++    if (mavWsUplinkLen + len <= sizeof(mavWsUplink))
++    {
++      memcpy(mavWsUplink + mavWsUplinkLen, data, len);
++      mavWsUplinkLen += len;
++    }
++    MAVWS_UNLOCK();
++  }
++}
++#endif
++
+ static struct {
+   const char *url;
+   const char *contentType;
+@@ -221,6 +266,9 @@ static struct {
+   {"/mui.js", "text/javascript", (uint8_t *)MUI_JS, sizeof(MUI_JS)},
+   {"/scan.js", "text/javascript", (uint8_t *)SCAN_JS, sizeof(SCAN_JS)},
+   {"/logo.svg", "image/svg+xml", (uint8_t *)LOGO_SVG, sizeof(LOGO_SVG)},
++#if defined(MAVLINK_ENABLED)
++  {"/fmp-relay.html", "text/html", (uint8_t *)FMP_RELAY_HTML, sizeof(FMP_RELAY_HTML)},
++#endif
+ #if defined(HAS_HEADTRACKING) || defined(SUPPORT_HEADTRACKING)
+   {"/airplane.obj", "text/plain", (uint8_t *)PLANE_OBJ, sizeof(PLANE_OBJ)},
+   {"/texture.gif", "image/gif", (uint8_t *)TEXTURE_GIF, sizeof(TEXTURE_GIF)},
+@@ -769,6 +817,8 @@ static void startServices()
+ #endif
+ #if defined(MAVLINK_ENABLED)
+   server.on("/mavlink", HTTP_GET, WebMAVLinkHandler);
++  mavWs.onEvent(onMavWsEvent);
++  server.addHandler(&mavWs);
+ #endif
+ 
+   server.onNotFound(WebUpdateHandleNotFound);
+@@ -908,10 +958,24 @@ static void HandleWebUpdate()
+ 
+         mavlinkUDP.beginPacket(remote, config.GetMavlinkSendPort());
+         mavlink_message_t* msgQueue = mavlink.GetQueuedMsgs();
++        // Same batch to WebSocket clients, coalesced; skipped (dropped) while their queue is full
++        static uint8_t wsBatch[1024];
++        uint16_t wsBatchLen = 0;
++        bool toWs = mavWs.count() > 0 && mavWs.availableForWriteAll();
+         for (uint8_t i = 0; i < mavlink.GetQueuedMsgCount(); i++)
+         {
+           uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+           uint16_t len = mavlink_msg_to_send_buffer(buf, &msgQueue[i]);
++          if (toWs)
++          {
++            if (wsBatchLen + len > sizeof(wsBatch))
++            {
++              mavWs.binaryAll(wsBatch, wsBatchLen);
++              wsBatchLen = 0;
++            }
++            memcpy(wsBatch + wsBatchLen, buf, len);
++            wsBatchLen += len;
++          }
+           size_t sent = mavlinkUDP.write(buf, len);
+           if (sent < len)
+           {
+@@ -919,6 +983,10 @@ static void HandleWebUpdate()
+           }
+         }
+         mavlinkUDP.endPacket();
++        if (wsBatchLen)
++        {
++          mavWs.binaryAll(wsBatch, wsBatchLen);
++        }
+         mavlink.ResetQueuedMsgCount();
+         last_mavlink_to_gcs_dump = millis();
+       }
+@@ -935,6 +1003,18 @@ static void HandleWebUpdate()
+           mavlinkUDP.read(buf, packetSize);
+           mavlink.ProcessMAVLinkFromGCS(buf, packetSize);
+         }
++
++        // MAVLink from WebSocket clients (FMP in a browser)
++        if (mavWsUplinkLen)
++        {
++          static uint8_t wsBuf[sizeof(mavWsUplink)];
++          MAVWS_LOCK();
++          uint16_t n = mavWsUplinkLen;
++          memcpy(wsBuf, mavWsUplink, n);
++          mavWsUplinkLen = 0;
++          MAVWS_UNLOCK();
++          mavlink.ProcessMAVLinkFromGCS(wsBuf, n);
++        }
+       }
+     }
+   #endif
+diff --git a/python/build_html.py b/python/build_html.py
+index c9e505e..d49995c 100644
+--- a/python/build_html.py
++++ b/python/build_html.py
+@@ -57,6 +57,7 @@ def build_common(env, mainfile):
+             build_html("elrs.css", "ELRS_CSS", out, env)
+             build_html("mui.css", "MUI_CSS", out, env)
+             build_html("logo.svg", "LOGO_SVG", out, env)
++            build_html("fmp-relay.html", "FMP_RELAY_HTML", out, env)
+             build_html("p5.js", "P5_JS", out, env)
+             build_html("airplane.obj", "PLANE_OBJ", out, env)
+             build_binary("texture.gif", "TEXTURE_GIF", out, env)
+-- 
+2.54.0 (Apple Git-157)
+
