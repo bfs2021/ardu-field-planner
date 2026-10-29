@@ -1,0 +1,55 @@
+"""Engine regressions found by the 2026-10-29 UI sweep (real browser, drawn shapes)."""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from backend.api import Api, MAX_FIELD_HA  # noqa: E402
+
+# Drawn at zoom 16 near Kyiv: field ~300 m square + a square exclusion, spacing 15 m.
+# The overlap overlay came back as a GeometryCollection -> AttributeError '.exterior'
+# failed the WHOLE build, not just the cosmetic layer.
+FIELD = [{"lat": 50.452012, "lng": 30.5226803}, {"lat": 50.452012, "lng": 30.5286884}, {"lat": 50.4481863, "lng": 30.5286884}, {"lat": 50.4481863, "lng": 30.5226803}]
+EXCL = [[{"lat": 50.4502924, "lng": 30.5261863}, {"lat": 50.4502924, "lng": 30.5267932}, {"lat": 50.4499059, "lng": 30.5267932}, {"lat": 50.4499059, "lng": 30.5261863}]]
+
+
+def test_overlap_geometrycollection_does_not_fail_build():
+    res = Api().build_route({"boundary": FIELD, "exclusions": EXCL, "spacing": 15, "angle": 178,
+                             "auto_angle": True, "alt": 30, "speed": 12, "rtl": True, "viz": True})
+    assert res["ok"], res.get("error")
+    assert res["count"] > 10
+
+
+def test_region_sized_contour_is_refused_with_a_reason():
+    # ~370 x 380 km: a contour drawn on a zoomed-out map.
+    huge = [{"lat": 50.117, "lng": 30.579}, {"lat": 50.117, "lng": 35.753},
+            {"lat": 46.684, "lng": 35.753}, {"lat": 46.684, "lng": 30.579}]
+    res = Api().build_route({"boundary": huge, "spacing": 20})
+    assert not res["ok"] and "завелике" in res["error"]
+
+
+def test_area_limit_does_not_touch_real_fields():
+    field = [{"lat": 50.45, "lng": 30.52}, {"lat": 50.45, "lng": 30.53},
+             {"lat": 50.455, "lng": 30.53}, {"lat": 50.455, "lng": 30.52}]
+    res = Api().build_route({"boundary": field, "spacing": 20})
+    assert res["ok"] and res["area_ha"] < MAX_FIELD_HA
+
+
+def test_export_files_work_without_a_server():
+    # The web/APK export buttons used /api/export (desktop only) -> 404 on GitHub Pages.
+    api = Api()
+    assert not api.export_files("waypoints")["ok"]            # nothing built yet
+    assert api.build_route({"boundary": FIELD, "spacing": 20})["ok"]
+    for fmt, name, head in [("waypoints", "mission.waypoints", "QGC WPL 110"), ("plan", "mission.plan", "{"),
+                            ("fence_plan", "field_fence.plan", "{"), ("fence_mp", "field.fence", ""),
+                            ("contour_geojson", "field_contour.geojson", "{")]:
+        r = api.export_files(fmt)
+        assert r["ok"], (fmt, r)
+        assert [f["name"] for f in r["files"]] == [name]
+        assert r["files"][0]["content"].lstrip().startswith(head) and len(r["files"][0]["content"]) > 20
+    assert not api.export_files("nope")["ok"]
+
+
+if __name__ == "__main__":
+    for _n, _f in list(globals().items()):
+        if _n.startswith("test_") and callable(_f):
+            _f()
+            print("  OK ", _n)
+    print("RESULT: ALL CHECKS PASSED")

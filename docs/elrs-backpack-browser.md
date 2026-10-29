@@ -15,6 +15,10 @@ What the patch adds:
   WebSocket and passes bytes through `postMessage` (the same protocol as the computer bridge's
   `relay.html`). An https page can't open `ws://` to the LAN itself.
 
+## Ready-made firmware
+
+[Release `1.5.7-fmp-ws`](https://github.com/tecelskyyivan-alt/Backpack/releases/tag/1.5.7-fmp-ws): `ESP_TX_Backpack-1.5.7-fmp-ws.bin` (ESP8285: RadioMaster Ranger / Ranger Micro / Ranger Nano, …) and `ESP32C3_TX_Backpack-1.5.7-fmp-ws.bin`, built from source with no Wi-Fi or personal data inside. Flash it through the backpack's web page → Update; your saved Home WiFi stays. Upstream proposal: [ExpressLRS/Backpack#252](https://github.com/ExpressLRS/Backpack/issues/252).
+
 ## Build and flash (once)
 
 ```sh

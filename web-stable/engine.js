@@ -41,11 +41,18 @@
   function startWorker() {
     worker = new Worker(DIR + "engine-worker.js");
     worker.onmessage = (e) => {
-      const { id, ok, result, error } = e.data || {};
+      const { id, ok, result, error, fatal } = e.data || {};
+      if (fatal) {
+        // Pyodide in the worker is dead: drop it, the next call boots a fresh one.
+        report("worker Pyodide fatal (" + error + ") → restart on next call");
+        try { worker.terminate(); } catch (e2) {}
+        worker = null; ready = null; readyDone = false; mode = null;
+      }
       const p = pending.get(id);
       if (!p) return;
       pending.delete(id);
       ok ? p.resolve(result) : p.reject(new Error(error || "engine error"));
+      if (fatal) { for (const q of pending.values()) q.reject(new Error("engine restarted")); pending.clear(); }
     };
     worker.onerror = (e) => {
       report("worker.onerror: " + ((e && e.message) || "crashed"));
@@ -98,16 +105,31 @@
   }
   function buildMain(params) {
     pyMain.globals.set("_pj", JSON.stringify(params));
-    const out = pyMain.runPython("import json as _j; _j.dumps(_api.build_route(_j.loads(_pj)))");
-    return JSON.parse(out);
+    try {
+      return JSON.parse(pyMain.runPython("import json as _j; _j.dumps(_api.build_route(_j.loads(_pj)))"));
+    } catch (e) { mainFatalCheck(); throw e; }
+  }
+  function exportMain(fmt) {
+    pyMain.globals.set("_pj", JSON.stringify(fmt));
+    try {
+      return JSON.parse(pyMain.runPython("import json as _j; _j.dumps(_api.export_files(_j.loads(_pj)))"));
+    } catch (e) { mainFatalCheck(); throw e; }
+  }
+  // Same as the worker's fatal path: a dead main-thread Pyodide is dropped and re-booted next call.
+  function mainFatalCheck() {
+    try { pyMain.runPython("1"); } catch (e) {
+      report("main-thread Pyodide fatal → re-boot on next call");
+      pyMain = null; ready = null; readyDone = false; mode = null;
+    }
   }
   // #12: provably-safe ingress/egress legs around the last-built route's field/exclusions.
   // Same shape as buildMain — a Python exception propagates to the caller, which decides
   // (viz call and mission-splice call both wrap this in try/catch and degrade on failure).
   function safeMain(params) {
     pyMain.globals.set("_pj", JSON.stringify(params));
-    const out = pyMain.runPython("import json as _j; _j.dumps(_api.safe_transit(_j.loads(_pj)))");
-    return JSON.parse(out);
+    try {
+      return JSON.parse(pyMain.runPython("import json as _j; _j.dumps(_api.safe_transit(_j.loads(_pj)))"));
+    } catch (e) { mainFatalCheck(); throw e; }
   }
 
   // ---- init: worker first, fall back to main-thread -----------------------
@@ -151,6 +173,12 @@
       await this.init();
       if (mode === "worker") return callWorker("build", params);
       return buildMain(params);
+    },
+    // Export file contents of the last-built route: {ok, files:[{name, content}]}.
+    async exportFiles(fmt) {
+      await this.init();
+      if (mode === "worker") return callWorker("export", fmt);
+      return exportMain(fmt);
     },
     async safeTransit(params) {
       await this.init();

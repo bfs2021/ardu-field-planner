@@ -18,7 +18,7 @@
      || /FMPiOS/.test(navigator.userAgent || ""));
   // Visible build tag so you can confirm an update actually landed (the APK does
   // NOT auto-update — you must reinstall it; the PWA updates on reopen).
-  const APP_VERSION = "2.5.96";
+  const APP_VERSION = "2.5.97";
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
@@ -555,9 +555,20 @@
   (function wireToolbarFinish() {
     const bar = document.querySelector(".leaflet-draw");
     if (!bar) return;
-    bar.addEventListener("click", (e) => {
+    // iOS: Leaflet.draw toggles its tools on touchstart, and the tap's synthetic click follows.
+    // So: also finish on touchstart (capture → Leaflet's own toggle never runs), and ignore the
+    // click that trails the tap which just ENABLED a tool — it used to cancel it at once, so on
+    // an iPhone no field could be drawn and the pencil/bin switched straight off.
+    let enabledAt = 0;
+    const onTap = (e) => {
       const a = e.target.closest("a"); if (!a) return;
       const cls = a.className || "";
+      const draw = drawControl._toolbars.draw && drawControl._toolbars.draw._activeMode;
+      const edit = drawControl._toolbars.edit && drawControl._toolbars.edit._activeMode;
+      const active = (/leaflet-draw-draw-/.test(cls) ? draw : /leaflet-draw-edit-/.test(cls) ? edit : null);
+      const on = !!(active && active.handler && active.handler.enabled && active.handler.enabled());
+      if (!on) { if (e.type === "touchstart") enabledAt = Date.now(); return; }   // this tap enables it
+      if (e.type === "click" && Date.now() - enabledAt < 800) { e.preventDefault(); e.stopPropagation(); return; }
       try {
         if (/leaflet-draw-draw-/.test(cls)) {
           const h = drawControl._toolbars.draw && drawControl._toolbars.draw._activeMode
@@ -579,7 +590,12 @@
           }
         }
       } catch (err) { /* ignore */ }
-    }, true);
+    };
+    bar.addEventListener("click", onTap, true);
+    // Only where Leaflet.draw itself toggles on touchstart (its iOS check); elsewhere it toggles
+    // on click, and finishing on touchstart would let the trailing click re-enable the tool.
+    const tb = drawControl._toolbars.draw;
+    if (tb && tb._detectIOS && tb._detectIOS()) bar.addEventListener("touchstart", onTap, true);
   })();
 
   // All drawing goes through the SAME Leaflet.draw toolbar handlers as the field
@@ -666,10 +682,13 @@
       layer.setStyle({ color: "#ff4d4d", weight: 2, fillOpacity: 0.2, dashArray: "4 4" });
     }
     layer.bindTooltip(t("Виріз — клікни, щоб видалити (або «Редагувати вирізи» для вузлів)"));
+    const createdAt = Date.now();
     layer.on("click", () => {
       // In ANY editing mode (custom exclusion-edit OR the native Leaflet.draw
       // edit/delete toolbar) the click belongs to that tool — don't quick-delete.
       if (exclusionEditMode || nativeEditActive()) return;
+      // A draw finished by double-click: its trailing click lands on the brand-new cut.
+      if (Date.now() - createdAt < 600) return;
       exclusionItems.removeLayer(layer);
       clearRoute();
       scheduleSaveField();
@@ -1234,15 +1253,20 @@
     setMsg(t("Шукаю ЛЕП в OSM…"), null);
     const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
     let data = null;
-    for (const url of mirrors) {
-      const ac = new AbortController(); const to = setTimeout(() => ac.abort(), 25000);
-      try {
-        const r = await fetch(url, { method: "POST", signal: ac.signal,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q) });
-        clearTimeout(to);
-        if (!r.ok) continue;
-        data = await r.json(); break;
-      } catch (e) { clearTimeout(to); }
+    // overpass-api.de answers 429/502/504 under load (seen 29.10: 502 now, 200 a minute later),
+    // and the second mirror often doesn't answer at all — retry the busy one twice before giving up.
+    outer: for (const url of mirrors) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt) { setMsg(t("Шукаю ЛЕП в OSM…") + " (" + (attempt + 1) + "/3)", null); await new Promise((res) => setTimeout(res, 2000 * attempt)); }
+        const ac = new AbortController(); const to = setTimeout(() => ac.abort(), 25000);
+        try {
+          const r = await fetch(url, { method: "POST", signal: ac.signal,
+            headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q) });
+          clearTimeout(to);
+          if (r.ok) { data = await r.json(); break outer; }
+          if (![429, 502, 503, 504].includes(r.status)) break;   // not "busy": next mirror
+        } catch (e) { clearTimeout(to); break; }                 // network/timeout: next mirror
+      }
     }
     if (!data || !data.elements) { setMsg(t("Overpass недоступний — спробуй пізніше або накресли виріз вручну (планування не заблоковано)."), "error"); return; }
     const lines = [], points = [];
@@ -1494,14 +1518,22 @@
     // so it works OFFLINE (no wifi). Fall back to the server API only if the
     // engine isn't available (e.g. it failed to load).
     const eng = window.FMP_ENGINE;
+    let engErr = null;
     if (!IS_QT && eng && eng.available()) {
       if (!live) setMsg(eng.isReady() ? "Будую…" : t("Готую офлайн-рушій…"), null);
       try {
         res = await eng.buildRoute(params);   // Pyodide (worker, or main thread on the APK)
       } catch (err) {
+        engErr = err;
         console.error("offline engine failed:", err);
         appLog("build: offline engine error: " + ((err && err.message) || err));
       }
+    }
+    // A static host (GitHub Pages, the bridge) has no /api: say what the engine said instead
+    // of a "server" JSON error.
+    if (res === null && engErr && STATIC_HOST) {
+      if (myToken === buildSeq && !live) setMsg(t("Офлайн-рушій не зміг побудувати маршрут: ") + ((engErr && engErr.message) || engErr), "error");
+      return;
     }
     if (res === null) {
       // The native APK has NO local server — the in-browser engine is the ONLY option,
@@ -1603,21 +1635,21 @@
       (async () => {
         try {
           const tParams = { home: lastHome ? { lat: lastHome.lat, lng: lastHome.lng } : undefined };
-          const t = (!IS_QT && eng && eng.available())
+          const tr = (!IS_QT && eng && eng.available())
             ? await eng.safeTransit(tParams)
             : await api().safe_transit(tParams);
           if (myToken !== buildSeq) return;   // a newer build superseded this one
           if (transitLayer) { map.removeLayer(transitLayer); transitLayer = null; }
-          if (t && t.ok) {
+          if (tr && tr.ok) {
             const legs = [];
-            if (t.ingress_ok && t.ingress.length > 1) legs.push(L.polyline(t.ingress.map((p) => [p.lat, p.lng]),
+            if (tr.ingress_ok && tr.ingress.length > 1) legs.push(L.polyline(tr.ingress.map((p) => [p.lat, p.lng]),
               { color: "#2ecc71", weight: 3, opacity: 0.9, dashArray: "6 6", interactive: false }));
-            if (t.egress_ok && t.egress.length > 1) legs.push(L.polyline(t.egress.map((p) => [p.lat, p.lng]),
+            if (tr.egress_ok && tr.egress.length > 1) legs.push(L.polyline(tr.egress.map((p) => [p.lat, p.lng]),
               { color: "#2f80ed", weight: 3, opacity: 0.9, dashArray: "6 6", interactive: false }));
             if (legs.length) transitLayer = L.featureGroup(legs).addTo(map)
               .bindTooltip(t("Безпечний шлях на старт / додому"));
-            if (!t.ingress_ok) setMsg(t("Безпечний шлях до старту не побудовано — політ напряму. Перевір межу поля та вирізи."), "warn");
-            if (!t.egress_ok) setMsg(t("Безпечний шлях додому не побудовано — політ напряму. Перевір межу поля та вирізи."), "warn");
+            if (!tr.ingress_ok) setMsg(t("Безпечний шлях до старту не побудовано — політ напряму. Перевір межу поля та вирізи."), "warn");
+            if (!tr.egress_ok) setMsg(t("Безпечний шлях додому не побудовано — політ напряму. Перевір межу поля та вирізи."), "warn");
           }
           // !t.ok (or an engine that lacks safe_transit) → no detour drawn, no warning —
           // this is cosmetic-only; the upload path makes its own independent decision.
@@ -1725,6 +1757,16 @@
   }
 
   async function doExport(fmt) {
+    // Browser / APK: the engine builds the files, the browser downloads them (no server).
+    const eng = window.FMP_ENGINE;
+    if (!IS_QT && !window.pywebview && eng && eng.available()) {
+      let r;
+      try { r = await eng.exportFiles(fmt); } catch (e) { r = { ok: false, error: (e && e.message) || String(e) }; }
+      if (!r || !r.ok) { setMsg((r && r.error) || t("Не вдалося зберегти."), "error"); return; }
+      for (const f of r.files) await downloadBlob(f.name, "text/plain", f.content);
+      setMsg(t("Збережено: ") + r.files.map((f) => f.name).join(", "), "ok");
+      return;
+    }
     const a = api();
     if (!a) { setMsg(t("pywebview API недоступний."), "error"); return; }
     const res = await a.export(fmt);
@@ -3231,19 +3273,19 @@
         try {
           const tParams = { home: { lat: home[0], lng: home[1] } };
           const eng = window.FMP_ENGINE;
-          const t = (!IS_QT && eng && eng.available())
+          const tr = (!IS_QT && eng && eng.available())
             ? await eng.safeTransit(tParams)
             : await api().safe_transit(tParams);
-          if (t && t.ok) {
+          if (tr && tr.ok) {
             // slice(0,-1)/slice(1) drop the shared endpoint (ingress ends at _wps[0],
             // egress starts at _wps[last]) so it isn't duplicated in `flown`.
-            const pre  = t.ingress_ok ? t.ingress.slice(0, -1).map((p) => [p.lat, p.lng]) : [];
-            const post = t.egress_ok  ? t.egress.slice(1).map((p) => [p.lat, p.lng])       : [];
+            const pre  = tr.ingress_ok ? tr.ingress.slice(0, -1).map((p) => [p.lat, p.lng]) : [];
+            const post = tr.egress_ok  ? tr.egress.slice(1).map((p) => [p.lat, p.lng])       : [];
             flown = [...pre, ..._wps, ...post];
             splicePre = pre.length;
             splicePost = post.length;
-            if (!t.ingress_ok) setMsg(t("Безпечний шлях до старту не побудовано — зліт напряму до першої точки."), "warn");
-            if (!t.egress_ok)  setMsg(t("Безпечний шлях додому не побудовано — RTL напряму."), "warn");
+            if (!tr.ingress_ok) setMsg(t("Безпечний шлях до старту не побудовано — зліт напряму до першої точки."), "warn");
+            if (!tr.egress_ok)  setMsg(t("Безпечний шлях додому не побудовано — RTL напряму."), "warn");
           }
           // on !t.ok or engine unavailable → flown stays = _wps (NEVER block the upload; just no detour)
         } catch (e) {
@@ -3731,6 +3773,7 @@
             if (flownWpTotal > 0) window.AndroidNotify.setMission(flownWpTotal);
           }
         } catch (e) { appLog("AndroidNotify.start failed: " + e); }
+        wakeLockOn();
         $("mav-connect").disabled = true;
         $("mav-disconnect").disabled = false;
         $("mav-upload").disabled = false;
@@ -3796,6 +3839,7 @@
     try { if (a && a.mav_disconnect) await a.mav_disconnect(); } catch (e) { /* ignore */ }
     mavConnected = false;
     try { if (window.AndroidNotify && window.AndroidNotify.stop) window.AndroidNotify.stop(); } catch (e) {}
+    wakeLockOff();
     $("mav-connect").disabled = false;
     $("mav-disconnect").disabled = true;
     $("mav-upload").disabled = true;
@@ -3861,10 +3905,43 @@
     } catch (e) { appLog("track drain failed: " + e); }
   }
 
+  // Browser (no native service): a screen that goes dark freezes the page and the drone link
+  // (iOS kills the relay's WebSocket). Keep the screen on while connected; the system drops the
+  // lock when the page is hidden, so take it again on return.
+  let _wakeLock = null, _wakeWanted = false;
+  async function wakeLockOn() {
+    _wakeWanted = true;
+    if (window.AndroidNotify || !navigator.wakeLock || _wakeLock || document.hidden) return;
+    try {
+      _wakeLock = await navigator.wakeLock.request("screen");
+      _wakeLock.addEventListener("release", () => { _wakeLock = null; });
+      appLog("wake lock: екран не гасне, поки дрон підключений");
+    } catch (e) { appLog("wake lock: " + ((e && e.message) || e)); }
+  }
+  function wakeLockOff() {
+    _wakeWanted = false;
+    if (_wakeLock) { try { _wakeLock.release(); } catch (e) {} _wakeLock = null; }
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && _wakeWanted) wakeLockOn(); });
+
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { flushLog(); flightRecPersist(true); mavStopPolling(); }
-    else if (mavConnected) { drainNativeTrack(); mavStartPolling(); }
+    else if (mavConnected) { drainNativeTrack(); mavStartPolling(); setTimeout(resumeLinkCheck, 4000); }
   });
+  // Browser only: a page that slept (screen off, app switch) may come back with a dead link
+  // (the relay's WebSocket closed). No heartbeat for 5 s after return → reconnect; the relay
+  // window is reused, so no new pop-up permission is needed.
+  async function resumeLinkCheck() {
+    if (!mavConnected || mavConnecting || window.AndroidNotify || document.hidden) return;
+    const a = mavApi();
+    let s = null;
+    try { s = a && a.mav_status ? await a.mav_status() : null; } catch (e) { return; }
+    if (!s || s.heartbeat_age == null || s.heartbeat_age <= 5) return;
+    appLog("resume: heartbeat " + Math.round(s.heartbeat_age) + " с тому → перепідключаюсь");
+    setMsg(t("Зв'язок перервався, поки екран був вимкнений — перепідключаюсь…"), null);
+    await mavDisconnect();
+    mavConnect();
+  }
 
   function fixName(f) {
     return ({ 0: "немає", 1: "немає", 2: "2D", 3: "3D", 4: "DGPS", 5: "RTK-float", 6: "RTK-fix" })[f] || "?";

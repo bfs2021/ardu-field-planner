@@ -32,6 +32,7 @@ jobs:
           python test_v24.py
           python test_vio_home_upload.py
           python test_upload_turn_radius.py
+          python tests/test_sweep_regressions.py
       - uses: actions/setup-node@v4
         with:
           node-version: "20"

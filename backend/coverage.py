@@ -1178,9 +1178,13 @@ def coverage_overlap_geo(home, waypoints, spacing, rtl=True, max_segments=900,
     def rings(geom):
         if geom is None or geom.is_empty:
             return []
-        polys = list(geom.geoms) if geom.geom_type == "MultiPolygon" else [geom]
+        # Overlay ops can return a GeometryCollection (polygons + stray lines/points): keep polygons.
+        def _polys(g):
+            if g.geom_type == "Polygon":
+                return [g]
+            return [q for sub in getattr(g, "geoms", []) for q in _polys(sub)]
         out = []
-        for p in polys:
+        for p in _polys(geom):
             if p.is_empty or p.area <= 0:
                 continue
             p = p.simplify(max(0.5, 0.05 * float(spacing)))     # cap vertex count on big/OSM fields (#9)
