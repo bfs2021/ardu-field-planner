@@ -123,10 +123,8 @@ const near = cur.x > 0 ? right : left, far = near === left ? right : left;
 runCell({ ...near, outer: null }); runCell(full(botRows)); runCell(far);
 
 g.save(); g.translate(FC.x, FC.y); g.rotate(ROT);
-g.fillStyle = "rgba(45,127,249,0.20)"; g.fillRect(-FW / 2 + 3, -FH / 2 + 3, FW - 6, FH - 6);
 g.strokeStyle = "#2d7ff9"; g.lineWidth = 2; g.strokeRect(-FW / 2 + 3, -FH / 2 + 3, FW - 6, FH - 6);
-// pass boundary (half a swath in from the edge) — app inset layer
-g.strokeStyle = "#5fd3a3"; g.lineWidth = 1.2; g.setLineDash([6, 5]); g.strokeRect(L0 - 3, T0 - 3, L1 - L0 + 6, T1 - T0 + 6); g.setLineDash([]);
+
 g.strokeStyle = "rgba(95,211,163,0.85)"; g.lineWidth = 0.9;
 for (const y of ys) { g.beginPath(); g.moveTo(-FW / 2 - 7, y); g.lineTo(-FW / 2 - 1, y); g.stroke(); }
 g.fillStyle = "rgba(255,77,77,0.20)"; g.fillRect(HOLE.x0 + 2, HOLE.y0 + 2, HOLE.x1 - HOLE.x0 - 4, HOLE.y1 - HOLE.y0 - 4);
