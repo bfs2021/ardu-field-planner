@@ -10,7 +10,7 @@
 [![tests](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-![Field Mission Planner: a 47 ha field, spray passes routed around a cut-out](docs/screenshot.jpg)
+![Field Mission Planner: a 77 ha field between windbreaks, spray passes ready to fly](docs/screenshot.jpg)
 
 ## Who it is for
 

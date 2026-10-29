@@ -7,7 +7,7 @@
 [![Відкрити в браузері](https://img.shields.io/badge/▶_Відкрити_в_браузері-без_встановлення-2ea44f?style=for-the-badge)](https://tecelskyyivan-alt.github.io/ardu-field-planner/)
 [![Завантажити APK](https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=Android%20APK&style=for-the-badge)](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest)
 
-![Field Mission Planner: поле 47 га, проходи обходять виріз](docs/screenshot.jpg)
+![Field Mission Planner: поле 77 га між лісосмугами, маршрут обприскування](docs/screenshot.jpg)
 
 ## Для кого
 
