@@ -178,5 +178,18 @@ await REAL["mav-connect"].listeners.click();
 check("phone browser: no bridge attempt", phoneUrls.length === 0);
 check("phone browser: points to the app", String(REAL["msg"].textContent || "").includes("застосунку FMP"));
 
+// ...but a phone that opened FMP from a computer's bridge (--lan) connects to that bridge.
+const lanUrls = [];
+for (const id of ["mav-connect", "mav-conn-type", "mav-address", "mav-baud", "msg"]) REAL[id] = realEl();
+REAL["mav-conn-type"].value = "udp"; REAL["mav-conn-type"].querySelector = () => null; REAL["mav-address"].value = ""; REAL["mav-baud"].value = "auto";
+const lanLoc = { ...loc, protocol: "http:", hostname: "192.168.0.103", port: "14550", host: "192.168.0.103:14550",
+  origin: "http://192.168.0.103:14550", pathname: "/", reload() {} };
+const sandbox5 = { ...sandbox4, location: lanLoc,
+  MAV_TRANSPORT: { serialSupported: () => false, openWebSocket: async (u) => { lanUrls.push(u); throw 0; }, openRelay: async (u) => { lanUrls.push(u); throw 0; } } };
+sandbox5.window = sandbox5; sandbox5.globalThis = sandbox5; sandbox5.self = sandbox5;
+vm.runInNewContext(src, sandbox5, { filename: "app.js", timeout: 30000 });
+await REAL["mav-connect"].listeners.click();
+check("phone on a --lan bridge page: WebSocket to that bridge", lanUrls[0] === "ws://192.168.0.103:14550");
+
 console.log("\nRESULT: " + (failed ? failed + " FAILURE(S)" : "ALL CHECKS PASSED"));
 process.exit(failed ? 1 : 0);

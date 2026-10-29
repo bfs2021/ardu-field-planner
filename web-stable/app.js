@@ -23,9 +23,10 @@
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
   // shortcut: a *.github.io origin is treated as a static host (no /api/log, /api/sync); another static host needs VPS_BASE or this regex
-  // 127.0.0.1:14550 = FMP served by scripts/udp_ws_bridge.py, also static (no /api).
-  const STATIC_HOST = /\.github\.io$/i.test(location.hostname) ||
-    (location.hostname === "127.0.0.1" && location.port === "14550");
+  // http://<host>:14550 = FMP served by scripts/udp_ws_bridge.py (this computer, or with
+  // --lan the computer's LAN address opened from a phone); also static (no /api).
+  const BRIDGE_PAGE = location.protocol === "http:" && location.port === "14550";
+  const STATIC_HOST = /\.github\.io$/i.test(location.hostname) || BRIDGE_PAGE;
   // Bug reports without a server (#11): the operator sends them by mail or as a GitHub issue.
   const REPORT_EMAIL = "teselskyy@gmail.com";
   const REPORT_REPO = "https://github.com/tecelskyyivan-alt/ardu-field-planner";
@@ -3107,10 +3108,11 @@
         } else if (conn.startsWith("udp:")) {
           // A browser can't receive UDP: scripts/udp_ws_bridge.py on this computer relays it.
           // "Listen on all" (0.0.0.0) means that local bridge.
-          // A phone browser has no bridge on itself (127.0.0.1 is the phone): only the app can.
-          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent || ""))
-            return { ok: false, error: "У браузері на телефоні WiFi-зв'язку з дроном немає: браузер не приймає UDP. Підключайся із застосунку FMP (Android APK або iOS) або з браузера на комп'ютері." };
-          const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, "127.0.0.1");
+          // A phone browser has no bridge on itself (127.0.0.1 is the phone): only the app can,
+          // or FMP opened from a bridge on a computer (--lan), which then is "listen on all".
+          if (!BRIDGE_PAGE && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || ""))
+            return { ok: false, error: "У браузері на телефоні WiFi-зв'язку з дроном немає: браузер не приймає UDP. Підключайся із застосунку FMP (Android APK або iOS), або запусти на комп'ютері міст з --lan і відкрий FMP з нього: http://<IP комп'ютера>:14550." };
+          const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, BRIDGE_PAGE ? location.hostname : "127.0.0.1");
           try {
             // Plain WebSocket works when FMP is served by the bridge, or once Chrome lets this
             // site reach the computer (site permission «apps on this device» / loopback).

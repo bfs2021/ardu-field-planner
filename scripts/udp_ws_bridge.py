@@ -8,12 +8,18 @@ Pages) from reaching 127.0.0.1 (Local Network Access), but a page from 127.0.0.1
 
 Run:   python3 scripts/udp_ws_bridge.py        (stdlib only, no installs)
 Open:  http://127.0.0.1:14550  ->  Flight -> UDP, address empty (auto) -> Connect.
+
+Phones: a phone browser can't run the bridge itself. With --lan the bridge also listens on
+the local network, and the phone opens FMP from it: http://<this computer's IP>:14550.
+Anyone on that WiFi can then reach the drone through it, so use --lan only on your own network.
 """
 import asyncio, base64, hashlib, mimetypes, struct, sys
 from pathlib import Path
 
-UDP_PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 14550
-WS_HOST, WS_PORT = "127.0.0.1", UDP_PORT   # same number, TCP vs UDP don't clash
+ARGS = [a for a in sys.argv[1:] if a != "--lan"]
+LAN = "--lan" in sys.argv[1:]
+UDP_PORT = int(ARGS[0]) if ARGS else 14550
+WS_HOST, WS_PORT = ("0.0.0.0" if LAN else "127.0.0.1"), UDP_PORT   # same number, TCP vs UDP don't clash
 GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 WEB = (Path(__file__).resolve().parent.parent / "web-stable").resolve()
 # Pyodide (~27 MB) is not in git; same pinned build the Pages deploy uses (.github/pyodide.sha256).
@@ -73,7 +79,10 @@ def http_response(request_line: str) -> bytes:
 
 async def handle_ws(reader, writer, udp):
     try:
-        head = await reader.readuntil(b"\r\n\r\n")
+        first = await reader.readexactly(1)
+        if first == b"\x16":   # TLS ClientHello: the browser tried https first; drop it fast so it falls back to http
+            writer.close(); return
+        head = first + await reader.readuntil(b"\r\n\r\n")
     except (asyncio.IncompleteReadError, asyncio.LimitOverrunError):
         writer.close(); return
     key = next((l.split(b":", 1)[1].strip() for l in head.split(b"\r\n")
@@ -121,6 +130,18 @@ async def report():
               f"backpack {peer[0] if peer else 'not heard'}", flush=True)
 
 
+def lan_ip():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("192.0.2.1", 9))     # no packet is sent; picks the interface with the default route
+        return s.getsockname()[0]
+    except OSError:
+        return "<IP цього комп'ютера>"
+    finally:
+        s.close()
+
+
 async def main():
     import socket
     loop = asyncio.get_running_loop()
@@ -131,7 +152,9 @@ async def main():
     udp, _ = await loop.create_datagram_endpoint(Udp, sock=sock)
     server = await asyncio.start_server(lambda r, w: handle_ws(r, w, udp), WS_HOST, WS_PORT)
     print(f"Bridge: UDP 0.0.0.0:{UDP_PORT}  <->  ws://{WS_HOST}:{WS_PORT}. Ctrl+C to stop.", flush=True)
-    print(f"Open FMP: http://{WS_HOST}:{WS_PORT}", flush=True)
+    print(f"Open FMP: http://127.0.0.1:{WS_PORT}", flush=True)
+    if LAN:
+        print(f"Phones on this WiFi: http://{lan_ip()}:{WS_PORT}", flush=True)
     asyncio.create_task(report())
     async with server:
         await server.serve_forever()
