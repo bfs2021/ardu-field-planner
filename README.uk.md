@@ -1,15 +1,13 @@
-# Field Mission Planner
+<p align="center"><img src="docs/banner.jpg" alt="Field Mission Planner — маршрути обприскування для дронів ArduPilot"></p>
 
-**Маршрути обприскування для дронів на ArduPilot — малюєш поле в телефоні й летиш. Безкоштовно, офлайн, без прив'язки до DJI.**
+<p align="center"><a href="README.md">English</a> · <b>Українська</b></p>
 
-[English](README.md) · **Українська**
+<p align="center"><b>Малюєш поле в телефоні — і летиш. Безкоштовно, офлайн, без прив'язки до DJI.</b></p>
 
-![Field Mission Planner — spray route over a field, around a tree island](docs/banner.jpg)
-
-[![Відкрити в браузері](https://img.shields.io/badge/▶_Відкрити_в_браузері-без_встановлення-2ea44f?style=for-the-badge)](https://tecelskyyivan-alt.github.io/ardu-field-planner/)
-[![Завантажити APK](https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=Android%20APK&style=for-the-badge)](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest)
-
-![Field Mission Planner: поле 77 га між лісосмугами, маршрут обприскування](docs/screenshot.jpg)
+<p align="center">
+  <a href="https://tecelskyyivan-alt.github.io/ardu-field-planner/"><img src="https://img.shields.io/badge/▶_Відкрити_в_браузері-без_встановлення-2ea44f?style=for-the-badge" alt="open"></a>
+  <a href="https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest"><img src="https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=Android%20APK&style=for-the-badge" alt="apk"></a>
+</p>
 
 ## Для кого
 
@@ -24,6 +22,9 @@ ArduCopter), і тобі набридло:
 FMP планує маршрут на телефоні, який у тебе вже є, і заливає його в дрон по MAVLink.
 
 ## Що вміє
+
+![Справжній застосунок: поле 77 га між лісосмугами, маршрут готовий до польоту](docs/screenshot.jpg)
+<sub>Справжній застосунок у браузері — поле 77 га між лісосмугами, маршрут побудовано й готово до заливки.</sub>
 
 **Планування**
 - Малюєш контур поля на супутниковій карті; тягнеш вершини — маршрут перебудовується одразу.
@@ -113,6 +114,7 @@ FMP планує маршрут на телефоні, який у тебе вж
 
 ---
 
+[![tests](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml) ·
 [Журнал змін / релізи](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases) ·
 [Розробка](docs/DEVELOPMENT.md) ·
 [Налаштування ELRS-бекпака](docs/elrs-backpack-browser.md) ·
