@@ -18,7 +18,7 @@
      || /FMPiOS/.test(navigator.userAgent || ""));
   // Visible build tag so you can confirm an update actually landed (the APK does
   // NOT auto-update — you must reinstall it; the PWA updates on reopen).
-  const APP_VERSION = "2.5.96";
+  const APP_VERSION = "2.5.97";
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
@@ -682,10 +682,13 @@
       layer.setStyle({ color: "#ff4d4d", weight: 2, fillOpacity: 0.2, dashArray: "4 4" });
     }
     layer.bindTooltip(t("Виріз — клікни, щоб видалити (або «Редагувати вирізи» для вузлів)"));
+    const createdAt = Date.now();
     layer.on("click", () => {
       // In ANY editing mode (custom exclusion-edit OR the native Leaflet.draw
       // edit/delete toolbar) the click belongs to that tool — don't quick-delete.
       if (exclusionEditMode || nativeEditActive()) return;
+      // A draw finished by double-click: its trailing click lands on the brand-new cut.
+      if (Date.now() - createdAt < 600) return;
       exclusionItems.removeLayer(layer);
       clearRoute();
       scheduleSaveField();
