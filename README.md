@@ -120,6 +120,8 @@ MAVLink** (кабель / WiFi-ELRS) + жива телеметрія. Рушій
   - **Over cable (USB serial)** and **over WiFi** (ELRS backpack, UDP). The WiFi link and
     mission upload are hardened for the narrow/lossy ELRS uplink (proactive re-send,
     ArduPilot `MISSION_ITEM_INT` **and** INAV `MISSION_ITEM` dialects).
+    Recommended: put the backpack on a shared WiFi (router, LTE modem, hotspot) so internet and MAVLink work
+    at once, see [docs/elrs-backpack-home-wifi.md](docs/elrs-backpack-home-wifi.md).
 - 💾 **Export** — `.waypoints` (QGC WPL 110), `.plan`, geofence `.plan` / `.fence`, `.geojson`; **KML** import/export.
 - 🗺️ **Multi-field KML import** — load a whole GIS field database (named parcels with
   cut-outs & areas); tap a contour on the map to pick it, or select several adjacent
