@@ -33,13 +33,16 @@
   let relayWin = null;
   async function openRelay(pageUrl) {
     const origin = new URL(pageUrl).origin;
-    if (!relayWin || relayWin.closed) relayWin = window.open(pageUrl, "fmp-udp-relay", "popup,width=380,height=160");
+    // Small, in the bottom-right corner; FMP takes the focus back once the link is up.
+    const left = (screen.availLeft || 0) + screen.availWidth - 340, top = (screen.availTop || 0) + screen.availHeight - 150;
+    if (!relayWin || relayWin.closed)
+      relayWin = window.open(pageUrl, "fmp-udp-relay", "popup,width=320,height=110,left=" + left + ",top=" + top);
     const w = relayWin;
     if (!w) throw new Error("Браузер заблокував вікно моста — дозволь спливні вікна для цього сайту.");
     const t = {
       ondata: null,
       write(bytes) { if (!w.closed) w.postMessage({ fmp: "tx", data: bytes }, origin); },
-      close() { window.removeEventListener("message", onMsg); },
+      close() { window.removeEventListener("message", onMsg); try { w.postMessage({ fmp: "close" }, origin); } catch (e) {} },
     };
     function onMsg(ev) {
       if (ev.origin !== origin || ev.source !== w || !ev.data) return;
@@ -53,6 +56,7 @@
       window.addEventListener("message", onReady);
     });
     window.addEventListener("message", onMsg);
+    try { window.focus(); } catch (e) {}
     return t;
   }
 

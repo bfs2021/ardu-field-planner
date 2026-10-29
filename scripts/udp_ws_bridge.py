@@ -55,6 +55,9 @@ class Udp(asyncio.DatagramProtocol):
 def http_response(request_line: str) -> bytes:
     parts = request_line.split(" ")
     path = parts[1].split("?", 1)[0] if len(parts) > 1 else "/"
+    if path == "/ping":     # FMP on Pages checks whether Chrome lets it reach this computer
+        return (b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nAccess-Control-Allow-Origin: *\r\n"
+                b"Access-Control-Allow-Private-Network: true\r\n\r\nok")
     if path.startswith("/pyodide/"):
         return f"HTTP/1.1 302 Found\r\nLocation: {PYODIDE_CDN}{path[9:]}\r\nContent-Length: 0\r\n\r\n".encode()
     f = (WEB / path.lstrip("/")).resolve()

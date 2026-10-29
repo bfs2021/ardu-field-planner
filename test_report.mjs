@@ -157,11 +157,13 @@ REAL["mav-conn-type"].value = "udp"; REAL["mav-conn-type"].querySelector = () =>
 const sandbox3 = { ...sandbox, MAV_TRANSPORT: { serialSupported: () => false,
   openWebSocket: async (u) => { wsUrls.push(u); throw new Error("no bridge"); },
   openRelay: async (u) => { wsUrls.push(u); throw new Error("no bridge"); } } };
+sandbox3.fetch = async (u) => { if (String(u).endsWith("/ping")) throw new TypeError("Failed to fetch"); return { ok: true }; };
 sandbox3.window = sandbox3; sandbox3.globalThis = sandbox3; sandbox3.self = sandbox3;
 vm.runInNewContext(src, sandbox3, { filename: "app.js", timeout: 30000 });
 await REAL["mav-connect"].listeners.click();
-// On Pages Chrome blocks 127.0.0.1, so the link goes through the bridge's relay popup.
-check("UDP with empty address goes to the local bridge's relay", wsUrls[0] === "http://127.0.0.1:14550/relay.html");
+// Direct WebSocket first; Chrome blocks Pages -> 127.0.0.1, so then the bridge's relay popup.
+check("UDP with empty address tries the local bridge directly", wsUrls[0] === "ws://127.0.0.1:14550");
+check("blocked -> falls back to the bridge's relay window", wsUrls[1] === "http://127.0.0.1:14550/relay.html");
 check("no bridge -> error names the bridge script", String(REAL["msg"].textContent || "").includes("udp_ws_bridge.py"));
 
 console.log("\nRESULT: " + (failed ? failed + " FAILURE(S)" : "ALL CHECKS PASSED"));

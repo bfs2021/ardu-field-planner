@@ -38,7 +38,7 @@
 
   window.addEventListener("message", (ev) => {
     if (!ALLOWED.includes(ev.origin) || !ev.data) return;
-    if (ev.data.fmp === "hello") { peer = ev.origin; ready(); }
+    if (ev.data.fmp === "hello") { peer = ev.origin; ready(); try { window.opener.focus(); } catch (e) {} }
     else if (ev.data.fmp === "tx" && ev.origin === peer && ws.readyState === 1) { ws.send(ev.data.data); tx++; }
     else if (ev.data.fmp === "close" && ev.origin === peer) window.close();
   });

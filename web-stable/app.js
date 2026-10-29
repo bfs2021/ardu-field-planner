@@ -18,7 +18,7 @@
      || /FMPiOS/.test(navigator.userAgent || ""));
   // Visible build tag so you can confirm an update actually landed (the APK does
   // NOT auto-update — you must reinstall it; the PWA updates on reopen).
-  const APP_VERSION = "2.5.89";
+  const APP_VERSION = "2.5.90";
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
@@ -3109,10 +3109,18 @@
           // "Listen on all" (0.0.0.0) means that local bridge.
           const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, "127.0.0.1");
           try {
-            // Served by the bridge itself -> plain WebSocket. From a public site (Pages) Chrome
-            // blocks 127.0.0.1, so go through the bridge's popup (mav/transport.js openRelay).
-            transport = location.host === addr ? await MAV_TRANSPORT.openWebSocket("ws://" + addr)
-              : await MAV_TRANSPORT.openRelay("http://" + addr + "/relay.html");
+            // Plain WebSocket works when FMP is served by the bridge, or once Chrome lets this
+            // site reach the computer (site permission «apps on this device» / loopback).
+            // Otherwise ask for that permission (Chrome's prompt) and, if refused, go through
+            // the bridge's popup window (mav/transport.js openRelay).
+            try { transport = await MAV_TRANSPORT.openWebSocket("ws://" + addr); }
+            catch (e) {
+              if (location.host === addr) throw e;
+              const allowed = await fetch("http://" + addr + "/ping", { targetAddressSpace: "loopback" })
+                .then((r) => r.ok, () => false);
+              transport = allowed ? await MAV_TRANSPORT.openWebSocket("ws://" + addr)
+                : await MAV_TRANSPORT.openRelay("http://" + addr + "/relay.html");
+            }
           } catch (e) {
             return { ok: false, error: "Немає зв'язку з мостом UDP: " + ((e && e.message) || e) + " Браузер не приймає UDP напряму — запусти на цьому комп'ютері міст: python3 scripts/udp_ws_bridge.py (з репозиторію FMP), тоді «Підключити» ще раз. Або під'єднайся кабелем." };
           }
