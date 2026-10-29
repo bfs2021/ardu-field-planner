@@ -10,6 +10,8 @@
 opencv-python-headless>=4.10
 pytesseract>=0.3.10
 rapidfuzz>=3.6
+# pytesseract hands every photo to Pillow; < 13.0.0 has 39 known CVEs (pip-audit 2026-10-29).
+pillow>=13.0.0
 
 # СИСТЕМНІ залежності (pip їх НЕ ставить):
 #   tesseract >= 5 З УКРАЇНСЬКОЮ моделлю (ukr traineddata):
