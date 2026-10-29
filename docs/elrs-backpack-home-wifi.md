@@ -23,10 +23,11 @@ ESP-based TX module, TX/RX firmware **3.5.0+**, TX Backpack **1.5.0+**.
 2. Join the same network from the phone, tablet or computer running FMP. The computer may
    sit on the router's 5 GHz band; only the backpack needs 2.4 GHz.
 3. **Web version on a computer only:** a browser can't receive UDP, so start the bridge
-   once per session: `python3 scripts/udp_ws_bridge.py` (stdlib, no installs), then open
-   FMP from the bridge at **http://127.0.0.1:14550**, not from GitHub Pages: Chrome blocks
-   a public site from reaching the computer itself. Fields saved on the Pages site don't
-   show up there (another address); move a field with KML export / import.
+   once per session: `python3 scripts/udp_ws_bridge.py` (stdlib, no installs). On Connect,
+   FMP on GitHub Pages opens a small bridge window (`127.0.0.1:14550/relay.html`) and talks
+   to the drone through it, because Chrome won't let a public site reach the computer
+   directly. Keep that window open; allow pop-ups for the site if Chrome blocks it.
+   FMP can also be opened from the bridge itself at http://127.0.0.1:14550 (no window).
    The Android and iOS apps need no bridge.
 4. FMP → **Flight** → link type **UDP**, leave the address empty (auto) → **Connect**.
 

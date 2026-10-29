@@ -26,6 +26,36 @@
     return t;
   }
 
+  // ---- Popup relay (web on GitHub Pages -> local UDP bridge) ----
+  // Chrome blocks a public page from reaching 127.0.0.1, but not from opening it as a
+  // popup: relay.html served by scripts/udp_ws_bridge.py holds the WebSocket and
+  // passes bytes through postMessage. Must be called inside the click (popup blocker).
+  let relayWin = null;
+  async function openRelay(pageUrl) {
+    const origin = new URL(pageUrl).origin;
+    if (!relayWin || relayWin.closed) relayWin = window.open(pageUrl, "fmp-udp-relay", "popup,width=380,height=160");
+    const w = relayWin;
+    if (!w) throw new Error("Браузер заблокував вікно моста — дозволь спливні вікна для цього сайту.");
+    const t = {
+      ondata: null,
+      write(bytes) { if (!w.closed) w.postMessage({ fmp: "tx", data: bytes }, origin); },
+      close() { window.removeEventListener("message", onMsg); },
+    };
+    function onMsg(ev) {
+      if (ev.origin !== origin || ev.source !== w || !ev.data) return;
+      if (ev.data.fmp === "rx" && t.ondata) t.ondata(new Uint8Array(ev.data.data));
+    }
+    await new Promise((resolve, reject) => {
+      const hello = setInterval(() => { try { w.postMessage({ fmp: "hello" }, origin); } catch (e) {} }, 300);
+      const timer = setTimeout(() => { done(); reject(new Error("Міст не відповів (вікно " + pageUrl + ").")); }, 8000);
+      function onReady(ev) { if (ev.origin === origin && ev.source === w && ev.data && ev.data.fmp === "ready") { done(); resolve(); } }
+      function done() { clearInterval(hello); clearTimeout(timer); window.removeEventListener("message", onReady); }
+      window.addEventListener("message", onReady);
+    });
+    window.addEventListener("message", onMsg);
+    return t;
+  }
+
   // ---- WebSerial (PC: USB cable / SiK radio) ----
   // Mirrors how Betaflight/ESC Configurator do it: getPorts() lists ports the
   // user already granted, and a SEPARATE requestPort() click (pure user gesture,
@@ -267,7 +297,7 @@
   }
 
   root.MAV_TRANSPORT = {
-    openWebSocket, openSerial, openWebUSB, openAndroidSerial, openAndroidUdp, openAndroidBle, openIosUdp,
+    openWebSocket, openRelay, openSerial, openWebUSB, openAndroidSerial, openAndroidUdp, openAndroidBle, openIosUdp,
     serialSupported, serialRequestPort, serialGetPorts,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

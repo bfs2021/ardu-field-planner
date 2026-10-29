@@ -66,6 +66,9 @@ self.addEventListener("fetch", (e) => {
   if (url.pathname.includes("/api/")) return;          // live backend only, never cached
   if (url.pathname.includes("/downloads/")) return;    // big installers: network only
   if (url.pathname.endsWith("/version.json")) return;  // update check: always the live version
+  // UDP bridge popup, opened from Pages: a fetch from here is refused (Chrome Local Network
+  // Access) while the browser's own navigation is allowed, so never intercept it.
+  if (url.pathname.endsWith("/relay.html")) return;
 
   // Immutable Pyodide runtime: cache-first from the stable cache, NO refresh.
   if (url.pathname.includes("/pyodide/")) {

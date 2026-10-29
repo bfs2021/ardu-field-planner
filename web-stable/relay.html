@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FMP — міст до дрона</title>
+<style>
+  body { margin: 0; padding: 16px; font: 14px/1.4 system-ui, sans-serif; background: #111827; color: #e5e7eb; }
+  b { color: #34d399; }
+  .err { color: #f87171; }
+</style>
+</head>
+<body>
+<!-- Opened as a popup by FMP on GitHub Pages: Chrome blocks a public page from reaching
+     127.0.0.1 (Local Network Access), but this page is served BY the bridge
+     (scripts/udp_ws_bridge.py), so it may open the WebSocket and relay bytes via postMessage. -->
+<div><b>FMP: зв'язок із дроном</b> — не закривай це вікно під час польоту.</div>
+<div id="st">Підключаюсь до моста…</div>
+<script>
+  "use strict";
+  // Only these pages may drive the drone through this window.
+  const ALLOWED = ["https://tecelskyyivan-alt.github.io", location.origin];
+  const st = document.getElementById("st");
+  let peer = null, ws = null, rx = 0, tx = 0;
+
+  function show(text, err) { st.textContent = text; st.className = err ? "err" : ""; }
+  function ready() { if (peer && ws && ws.readyState === 1) window.opener.postMessage({ fmp: "ready" }, peer); }
+
+  ws = new WebSocket("ws://" + location.host);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => { show("Міст підключено, чекаю FMP…"); ready(); };
+  ws.onerror = () => show("Міст не відповідає. Запусти: python3 scripts/udp_ws_bridge.py", true);
+  ws.onclose = () => { show("Зв'язок із мостом закрито.", true); if (peer && window.opener) window.opener.postMessage({ fmp: "closed" }, peer); };
+  ws.onmessage = (ev) => {
+    rx++;
+    if (peer && window.opener) window.opener.postMessage({ fmp: "rx", data: ev.data }, peer, [ev.data]);
+  };
+
+  window.addEventListener("message", (ev) => {
+    if (!ALLOWED.includes(ev.origin) || !ev.data) return;
+    if (ev.data.fmp === "hello") { peer = ev.origin; ready(); }
+    else if (ev.data.fmp === "tx" && ev.origin === peer && ws.readyState === 1) { ws.send(ev.data.data); tx++; }
+    else if (ev.data.fmp === "close" && ev.origin === peer) window.close();
+  });
+
+  setInterval(() => { if (peer && ws.readyState === 1) show("Дрон ↔ FMP: прийнято " + rx + ", надіслано " + tx + " пакетів."); }, 1000);
+</script>
+</body>
+</html>

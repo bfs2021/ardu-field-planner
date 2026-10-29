@@ -3108,8 +3108,14 @@
           // A browser can't receive UDP: scripts/udp_ws_bridge.py on this computer relays it.
           // "Listen on all" (0.0.0.0) means that local bridge.
           const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, "127.0.0.1");
-          try { transport = await MAV_TRANSPORT.openWebSocket("ws://" + addr); }
-          catch (e) { return { ok: false, error: "Браузер не приймає UDP напряму. Запусти на цьому комп'ютері міст: python3 scripts/udp_ws_bridge.py (з репозиторію FMP) і відкрий FMP з нього: http://127.0.0.1:14550. Або під'єднайся кабелем." }; }
+          try {
+            // Served by the bridge itself -> plain WebSocket. From a public site (Pages) Chrome
+            // blocks 127.0.0.1, so go through the bridge's popup (mav/transport.js openRelay).
+            transport = location.host === addr ? await MAV_TRANSPORT.openWebSocket("ws://" + addr)
+              : await MAV_TRANSPORT.openRelay("http://" + addr + "/relay.html");
+          } catch (e) {
+            return { ok: false, error: "Немає зв'язку з мостом UDP: " + ((e && e.message) || e) + " Браузер не приймає UDP напряму — запусти на цьому комп'ютері міст: python3 scripts/udp_ws_bridge.py (з репозиторію FMP), тоді «Підключити» ще раз. Або під'єднайся кабелем." };
+          }
         } else if (conn.startsWith("tcp:")) {
           transport = await MAV_TRANSPORT.openWebSocket("ws://" + conn.slice(4));
         } else if (IS_ANDROID) {
