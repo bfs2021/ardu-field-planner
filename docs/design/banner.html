@@ -1,0 +1,183 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: IS; src: url("fonts/InstrumentSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: PM; src: url("fonts/IBMPlexMono-Regular.ttf"); }
+html, body { margin: 0; background: #0b0f14; }
+canvas { display: block; }
+</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Survey Light — README banner. Land is procedural; the route follows the app's rules:
+// passes at fixed spacing, U-turn diameter = spacing, cut-out avoided, safe transit along the headland.
+const W = 1280, H = 400, DPR = 2;
+const cv = document.getElementById("c");
+cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + "px"; cv.style.height = H + "px";
+const g = cv.getContext("2d"); g.scale(DPR, DPR);
+let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+const FC = { x: 952, y: 204 }, ROT = -7 * Math.PI / 180;
+const FW = 336, FH = 240;
+const COLS = [-820, -600, -420, -FW / 2, FW / 2, 310, 480, 660, 860];
+const ROWS = [-560, -340, -FH / 2, FH / 2, 270, 500];
+const PAL = ["#b59b56", "#c4aa63", "#6f8a3f", "#56713a", "#6a5539", "#a8925f", "#8c8a45", "#7f9a4a", "#9b7f4b"];
+const BREAK_X = [-420, -FW / 2, FW / 2, 480], BREAK_Y = [270];
+const TARGET = "#6f8540";
+
+function field(x0, y0, w, h, base, angle, step, alpha) {
+  g.save(); g.beginPath(); g.rect(x0, y0, w, h); g.clip();
+  g.fillStyle = base; g.fillRect(x0, y0, w, h);
+  const gr = g.createLinearGradient(x0, y0, x0 + w * 0.8, y0 + h);
+  gr.addColorStop(0, "rgba(255,236,190,0.10)"); gr.addColorStop(1, "rgba(30,20,0,0.12)");
+  g.fillStyle = gr; g.fillRect(x0, y0, w, h);
+  g.translate(x0 + w / 2, y0 + h / 2); g.rotate(angle);
+  const Rr = Math.hypot(w, h);
+  g.strokeStyle = `rgba(30,26,10,${alpha})`; g.lineWidth = 0.6;
+  for (let t = -Rr; t < Rr; t += step) { g.beginPath(); g.moveTo(-Rr, t); g.lineTo(Rr, t); g.stroke(); }
+  g.strokeStyle = `rgba(30,26,10,${alpha * 2})`; g.lineWidth = 0.8;
+  for (let t = -Rr; t < Rr; t += 26) for (const o of [0, 2.4]) { g.beginPath(); g.moveTo(-Rr, t + o); g.lineTo(Rr, t + o); g.stroke(); }
+  g.restore();
+}
+function trees(pts) {
+  g.fillStyle = "rgba(10,10,4,0.45)";
+  for (const [x, y, r] of pts) { g.beginPath(); g.ellipse(x + 5, y + 5.5, r * 1.3, r * 1.05, 0.5, 0, 7); g.fill(); }
+  for (const [x, y, r] of pts) {
+    const gr = g.createRadialGradient(x - r * 0.45, y - r * 0.45, 0.2, x, y, r);
+    gr.addColorStop(0, "#86a552"); gr.addColorStop(0.55, "#3f6229"); gr.addColorStop(1, "#203717");
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+}
+function treeRow(x0, y0, x1, y1) {
+  const n = Math.round(Math.hypot(x1 - x0, y1 - y0) / 3.8), nx = -(y1 - y0), ny = x1 - x0, L = Math.hypot(nx, ny), pts = [];
+  for (let i = 0; i <= n; i++) { const t = i / n, j = (rnd() - 0.5) * 2.4; pts.push([lerp(x0, x1, t) + nx / L * j, lerp(y0, y1, t) + ny / L * j, 2.5 + rnd() * 2.3]); }
+  trees(pts);
+}
+
+// ---------- land ----------
+g.fillStyle = "#4a4628"; g.fillRect(0, 0, W, H);
+g.save(); g.translate(FC.x, FC.y); g.rotate(ROT);
+for (let i = 0; i < COLS.length - 1; i++) for (let j = 0; j < ROWS.length - 1; j++) {
+  const target = COLS[i] === -FW / 2 && ROWS[j] === -FH / 2;
+  const base = target ? TARGET : PAL[Math.floor(rnd() * PAL.length)];
+  const ang = target ? 0 : (rnd() < 0.5 ? 0 : Math.PI / 2);
+  field(COLS[i] + 1.5, ROWS[j] + 1.5, COLS[i + 1] - COLS[i] - 3, ROWS[j + 1] - ROWS[j] - 3, base, ang, 2.5 + rnd() * 1.2, 0.07 + rnd() * 0.05);
+}
+g.strokeStyle = "rgba(225,205,150,0.22)"; g.lineWidth = 3;
+for (const x of COLS) { g.beginPath(); g.moveTo(x, ROWS[0]); g.lineTo(x, ROWS.at(-1)); g.stroke(); }
+for (const y of ROWS) { g.beginPath(); g.moveTo(COLS[0], y); g.lineTo(COLS.at(-1), y); g.stroke(); }
+const yRoad = -FH / 2 - 11;
+g.strokeStyle = "rgba(232,214,166,0.75)"; g.lineWidth = 7; g.beginPath(); g.moveTo(COLS[0], yRoad); g.lineTo(COLS.at(-1), yRoad); g.stroke();
+g.strokeStyle = "rgba(140,120,80,0.45)"; g.lineWidth = 1; g.beginPath(); g.moveTo(COLS[0], yRoad + 0.5); g.lineTo(COLS.at(-1), yRoad + 0.5); g.stroke();
+treeRow(COLS[0], yRoad - 9, COLS.at(-1), yRoad - 9);
+for (const x of BREAK_X) treeRow(x - 4, ROWS[0], x - 4, ROWS.at(-1));
+for (const y of BREAK_Y) treeRow(COLS[0], y + 4, COLS.at(-1), y + 4);
+const ISL = { x: 54, y: -4, rx: 28, ry: 17 };
+const isl = []; for (let k = 0; k < 30; k++) { const a = rnd() * 6.283, rr = Math.sqrt(rnd()) * 0.85; isl.push([ISL.x + Math.cos(a) * ISL.rx * rr, ISL.y + Math.sin(a) * ISL.ry * rr, 3 + rnd() * 2.6]); }
+isl.sort((p, q) => p[1] - q[1]); trees(isl);
+g.restore();
+
+// ---------- light ----------
+let gr = g.createRadialGradient(1230, -40, 10, 1120, 60, 820);
+gr.addColorStop(0, "rgba(255,206,130,0.42)"); gr.addColorStop(0.45, "rgba(255,170,80,0.14)"); gr.addColorStop(1, "rgba(40,20,0,0.10)");
+g.fillStyle = gr; g.fillRect(0, 0, W, H);
+g.fillStyle = "rgba(14,18,22,0.14)"; g.fillRect(0, 0, W, H);
+gr = g.createLinearGradient(0, 0, 0, H);
+gr.addColorStop(0, "rgba(11,15,20,0.05)"); gr.addColorStop(0.75, "rgba(11,15,20,0)"); gr.addColorStop(1, "rgba(11,15,20,0.40)");
+g.fillStyle = gr; g.fillRect(0, 0, W, H);
+const img = g.getImageData(0, 0, W * DPR, H * DPR), d = img.data;
+for (let i = 0; i < d.length; i += 4) { const n = (rnd() - 0.5) * 12; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+g.putImageData(img, 0, 0);
+gr = g.createLinearGradient(0, 0, 820, 0);
+gr.addColorStop(0, "rgba(11,15,20,1)"); gr.addColorStop(0.52, "rgba(11,15,20,0.97)");
+gr.addColorStop(0.74, "rgba(11,15,20,0.55)"); gr.addColorStop(1, "rgba(11,15,20,0)");
+g.fillStyle = gr; g.fillRect(0, 0, W, H);
+
+// ---------- route ----------
+const S = 12, R = S / 2, M = 4;
+const HOLE = { x0: ISL.x - ISL.rx - 8, x1: ISL.x + ISL.rx + 8, y0: ISL.y - ISL.ry - 8, y1: ISL.y + ISL.ry + 8 };
+const L0 = -FW / 2 + 10, L1 = FW / 2 - 10, T0 = -FH / 2 + 10, T1 = FH / 2 - 10;
+const ys = []; for (let y = T0 + R; y <= T1 - R + 0.01; y += S) ys.push(y);
+const inBand = (y) => y + R + M > HOLE.y0 && y - R - M < HOLE.y1;
+const A = L0 + R + M, B = L1 - R - M;
+const topRows = ys.filter((y) => y < HOLE.y0 && !inBand(y)), band = ys.filter(inBand), botRows = ys.filter((y) => y > HOLE.y1 && !inBand(y));
+const full = (rows) => ({ rows, a: A, b: B }), left = { rows: band, a: A, b: HOLE.x0 - R - M, outer: "a" }, right = { rows: band, a: HOLE.x1 + R + M, b: B, outer: "b" };
+
+const ops = [];   // {k:'line'|'arc'|'transit', ...}
+let cur = null;
+function runCell(c) {
+  c.rows.forEach((y, i) => {
+    // after a transit the drone arrives from the field edge (outer side) of the cell
+    const fromRight = i === 0 && c.outer ? c.outer === "b" : cur ? Math.abs(cur.x - c.b) < Math.abs(cur.x - c.a) : false;
+    const s = fromRight ? c.b : c.a, e = fromRight ? c.a : c.b;
+    if (cur) {
+      if (Math.abs(cur.x - s) < 0.01 && Math.abs(y - cur.y - S) < 0.01) ops.push({ k: "arc", cx: s, cy: y - R, right: fromRight });
+      else ops.push({ k: "transit", from: cur, to: { x: s, y } });
+    }
+    ops.push({ k: "line", x0: s, x1: e, y });
+    cur = { x: e, y };
+  });
+}
+runCell(full(topRows));
+const near = cur.x > 0 ? right : left, far = near === left ? right : left;
+runCell({ ...near, outer: null }); runCell(full(botRows)); runCell(far);
+
+g.save(); g.translate(FC.x, FC.y); g.rotate(ROT);
+g.strokeStyle = "#8ff0b0"; g.lineWidth = 1.5; g.strokeRect(-FW / 2 + 3, -FH / 2 + 3, FW - 6, FH - 6);
+g.strokeStyle = "rgba(143,240,176,0.8)"; g.lineWidth = 0.9;
+for (const y of ys) { g.beginPath(); g.moveTo(-FW / 2 - 7, y); g.lineTo(-FW / 2 - 1, y); g.stroke(); }
+g.strokeStyle = "#ff8a7a"; g.lineWidth = 1.3; g.setLineDash([4, 3]);
+g.strokeRect(HOLE.x0 + 2, HOLE.y0 + 2, HOLE.x1 - HOLE.x0 - 4, HOLE.y1 - HOLE.y0 - 4); g.setLineDash([]);
+
+g.lineCap = "round"; g.lineJoin = "round";
+// sprayed path: one stroke, broken only by transits
+g.strokeStyle = "#62a8ff"; g.lineWidth = 1.6; g.shadowColor = "rgba(98,168,255,0.6)"; g.shadowBlur = 5;
+g.beginPath(); let open = false;
+for (const o of ops) {
+  if (o.k === "line") { if (!open) { g.moveTo(o.x0, o.y); open = true; } else g.lineTo(o.x0, o.y); g.lineTo(o.x1, o.y); }
+  else if (o.k === "arc") g.arc(o.cx, o.cy, R, -Math.PI / 2, Math.PI / 2, !o.right);
+  else { g.stroke(); g.beginPath(); open = false; }
+}
+g.stroke(); g.shadowBlur = 0;
+// safe transit: dashed, along the headland outside the passes, never over the cut-out
+g.strokeStyle = "rgba(255,255,255,0.85)"; g.lineWidth = 1.1; g.setLineDash([2, 4]);
+for (const o of ops.filter((q) => q.k === "transit")) {
+  const yH = T1 - 1, xA = o.from.x > 0 ? L1 - 1 : L0 + 1, xB = o.to.x > 0 ? L1 - 1 : L0 + 1;
+  g.beginPath(); g.moveTo(o.from.x, o.from.y); g.lineTo(xA, o.from.y);
+  if (xA !== xB) { g.lineTo(xA, yH); g.lineTo(xB, yH); }
+  g.lineTo(xB, o.to.y); g.lineTo(o.to.x, o.to.y); g.stroke();
+}
+g.setLineDash([]);
+const lines = ops.filter((q) => q.k === "line"), st = { x: lines[0].x0, y: lines[0].y }, en = { x: lines.at(-1).x1, y: lines.at(-1).y };
+for (const [p, c] of [[st, "#8ff0b0"], [en, "#ff8a7a"]]) {
+  g.fillStyle = "#0b0f14"; g.beginPath(); g.arc(p.x, p.y, 5.4, 0, 7); g.fill();
+  g.fillStyle = c; g.beginPath(); g.arc(p.x, p.y, 3.5, 0, 7); g.fill();
+}
+g.restore();
+
+// ---------- type & marginalia ----------
+const P = (lx, ly) => ({ x: FC.x + lx * Math.cos(ROT) - ly * Math.sin(ROT), y: FC.y + lx * Math.sin(ROT) + ly * Math.cos(ROT) });
+const SYS = '-apple-system, "SF Pro Text", "Helvetica Neue", sans-serif';
+Promise.all([document.fonts.load("700 10px IS"), document.fonts.load("10px PM")]).then(() => {
+  g.textBaseline = "alphabetic";
+  g.fillStyle = "rgba(240,244,248,0.9)"; g.font = "10px PM";
+  const tr = P(FW / 2, -FH / 2);
+  g.strokeStyle = "rgba(240,244,248,0.6)"; g.lineWidth = 0.8;
+  g.beginPath(); g.moveTo(tr.x + 3, tr.y + 2); g.lineTo(tr.x + 20, tr.y + 19); g.lineTo(tr.x + 36, tr.y + 19); g.stroke();
+  g.fillText("48.381° N  32.619° E", tr.x + 40, tr.y + 22);
+  const bl = P(-FW / 2, FH / 2);
+  g.fillText(`SWATH 20 m  ·  ${ys.length} PASSES  ·  CUT-OUT AVOIDED`, bl.x + 4, bl.y + 24);
+  const sx = 1166, sy = 380;
+  g.fillRect(sx, sy, 62, 1.3); g.fillRect(sx, sy - 4, 1.2, 5); g.fillRect(sx + 61, sy - 4, 1.2, 5);
+  g.fillText("100 m", sx + 16, sy - 7);
+
+  g.fillStyle = "rgba(160,174,190,0.6)"; g.font = "10px PM"; g.fillText("ARDUPILOT  ·  AGRICULTURAL SPRAYING", 73, 104);
+  g.fillStyle = "#f1f5f9"; g.font = "700 56px IS"; g.fillText("Field Mission Planner", 70, 170);
+  g.fillStyle = "#62a8ff"; g.fillRect(73, 194, 56, 3);
+  g.fillStyle = "rgba(226,232,240,0.95)"; g.font = `400 22px ${SYS}`; g.fillText("Spray routes for ArduPilot drones", 72, 238);
+  g.fillStyle = "rgba(160,174,190,0.92)"; g.font = `400 17px ${SYS}`; g.fillText("Маршрути обприскування для дронів ArduPilot", 72, 266);
+  g.fillStyle = "rgba(143,240,176,0.92)"; g.font = "11px PM";
+  g.fillText("OFFLINE  ·  PHONE · PC · BROWSER  ·  FREE · GPLv3", 73, 318);
+  document.title = "ready";
+});
+</script></body></html>
