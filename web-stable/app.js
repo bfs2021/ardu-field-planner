@@ -1250,15 +1250,20 @@
     setMsg(t("Шукаю ЛЕП в OSM…"), null);
     const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
     let data = null;
-    for (const url of mirrors) {
-      const ac = new AbortController(); const to = setTimeout(() => ac.abort(), 25000);
-      try {
-        const r = await fetch(url, { method: "POST", signal: ac.signal,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q) });
-        clearTimeout(to);
-        if (!r.ok) continue;
-        data = await r.json(); break;
-      } catch (e) { clearTimeout(to); }
+    // overpass-api.de answers 429/502/504 under load (seen 29.10: 502 now, 200 a minute later),
+    // and the second mirror often doesn't answer at all — retry the busy one twice before giving up.
+    outer: for (const url of mirrors) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt) { setMsg(t("Шукаю ЛЕП в OSM…") + " (" + (attempt + 1) + "/3)", null); await new Promise((res) => setTimeout(res, 2000 * attempt)); }
+        const ac = new AbortController(); const to = setTimeout(() => ac.abort(), 25000);
+        try {
+          const r = await fetch(url, { method: "POST", signal: ac.signal,
+            headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q) });
+          clearTimeout(to);
+          if (r.ok) { data = await r.json(); break outer; }
+          if (![429, 502, 503, 504].includes(r.status)) break;   // not "busy": next mirror
+        } catch (e) { clearTimeout(to); break; }                 // network/timeout: next mirror
+      }
     }
     if (!data || !data.elements) { setMsg(t("Overpass недоступний — спробуй пізніше або накресли виріз вручну (планування не заблоковано)."), "error"); return; }
     const lines = [], points = [];
