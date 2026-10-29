@@ -1,35 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 300" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-label="Field Mission Planner — boustrophedon coverage route over a field">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0d1520"/>
-      <stop offset="1" stop-color="#0a0f14"/>
-    </linearGradient>
-    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#16351f"/>
-      <stop offset="1" stop-color="#0f2417"/>
-    </linearGradient>
-  </defs>
-
-  <rect width="820" height="300" fill="url(#bg)"/>
-
-  <!-- field polygon -->
-  <polygon points="70,215 120,70 470,55 520,235 250,255"
-           fill="url(#field)" stroke="#3fbf6a" stroke-width="2.5" stroke-linejoin="round"/>
-
-  <!-- boustrophedon ("lawnmower") coverage route -->
-  <polyline fill="none" stroke="#5fd3a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
-    points="105,205 480,190 480,168 108,182 111,160 482,148 483,126 114,138 117,116 485,104 486,83 122,93"/>
-  <!-- rounded U-turns hint -->
-  <path d="M480,190 q16,-11 0,-22 M482,148 q16,-11 0,-22 M485,104 q16,-11 0,-21" fill="none" stroke="#5fd3a3" stroke-width="2.4" opacity="0.55"/>
-
-  <!-- drone / start marker -->
-  <circle cx="105" cy="205" r="8.5" fill="#0a0f14" stroke="#7bd0ff" stroke-width="2.5"/>
-  <circle cx="105" cy="205" r="3" fill="#7bd0ff"/>
-
-  <!-- title -->
-  <text x="560" y="120" fill="#eaf2fb" font-size="30" font-weight="700">Field Mission</text>
-  <text x="560" y="156" fill="#eaf2fb" font-size="30" font-weight="700">Planner</text>
-  <text x="561" y="184" fill="#8fb4d8" font-size="15">ArduCopter · agricultural spraying</text>
-  <text x="561" y="212" fill="#5fd3a3" font-size="13.5">draw a field → coverage route → fly it (MAVLink)</text>
-  <text x="561" y="236" fill="#6f8aa8" font-size="12.5">offline · Українська / English</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Field Mission Planner — spray route over a field">
+  <rect width="1280" height="400" rx="14" fill="#0b0f14"/>
+  <g stroke="#ffffff" stroke-opacity="0.035"><path d="M40,0V400"/><path d="M80,0V400"/><path d="M120,0V400"/><path d="M160,0V400"/><path d="M200,0V400"/><path d="M240,0V400"/><path d="M280,0V400"/><path d="M320,0V400"/><path d="M360,0V400"/><path d="M400,0V400"/><path d="M440,0V400"/><path d="M480,0V400"/><path d="M520,0V400"/><path d="M560,0V400"/><path d="M600,0V400"/><path d="M640,0V400"/><path d="M680,0V400"/><path d="M720,0V400"/><path d="M760,0V400"/><path d="M800,0V400"/><path d="M840,0V400"/><path d="M880,0V400"/><path d="M920,0V400"/><path d="M960,0V400"/><path d="M1000,0V400"/><path d="M1040,0V400"/><path d="M1080,0V400"/><path d="M1120,0V400"/><path d="M1160,0V400"/><path d="M1200,0V400"/><path d="M1240,0V400"/><path d="M0,40H1280"/><path d="M0,80H1280"/><path d="M0,120H1280"/><path d="M0,160H1280"/><path d="M0,200H1280"/><path d="M0,240H1280"/><path d="M0,280H1280"/><path d="M0,320H1280"/><path d="M0,360H1280"/></g>
+  <polygon points="800,62 1150,52 1225,200 1180,346 845,352 765,215" fill="#3fbf6a" fill-opacity="0.10" stroke="#3fbf6a" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M815.6,79.0 L1141.1,79.0 C1166.9,79.0 1166.9,101.0 1152.3,101.0 L810.6,101.0 C790.9,101.0 790.9,123.0 805.6,123.0 L1163.4,123.0 C1189.2,123.0 1189.2,145.0 1174.6,145.0 L800.5,145.0 C780.8,145.0 780.8,167.0 795.5,167.0 L1185.7,167.0 C1211.5,167.0 1211.5,189.0 1196.9,189.0 L790.5,189.0 C771.4,189.0 771.4,211.0 786.1,211.0 L1201.2,211.0 C1215.9,211.0 1215.9,233.0 1194.4,233.0 L798.9,233.0 C784.3,233.0 784.3,255.0 811.8,255.0 L1187.7,255.0 C1202.3,255.0 1202.3,277.0 1180.9,277.0 L824.6,277.0 C810.0,277.0 810.0,299.0 837.5,299.0 L1174.1,299.0 C1188.8,299.0 1188.8,321.0 1167.3,321.0 L850.3,321.0" fill="none" stroke="#4c8dff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="815.6" cy="79.0" r="7" fill="#3fbf6a" stroke="#0b0f14" stroke-width="2.5"/>
+  <circle cx="850.3" cy="321.0" r="7" fill="#ff5a5a" stroke="#0b0f14" stroke-width="2.5"/>
+  <text x="80" y="160" fill="#eef3f8" font-size="58" font-weight="700" letter-spacing="-1">Field Mission Planner</text>
+  <rect x="82" y="188" width="64" height="4" rx="2" fill="#4c8dff"/>
+  <text x="80" y="238" fill="#a9b6c4" font-size="26">Spray routes for ArduPilot drones</text>
+  <text x="80" y="276" fill="#a9b6c4" font-size="26">Маршрути обприскування для дронів ArduPilot</text>
+  <text x="80" y="326" fill="#3fbf6a" font-size="22">Works offline · phone, PC, browser · free</text>
 </svg>

@@ -1,229 +1,124 @@
-# Field Mission Planner — ArduCopter (agricultural spraying)
+# Field Mission Planner
 
-![Field Mission Planner](docs/banner.svg)
+**Spray routes for ArduPilot drones — draw the field on your phone, fly it. Free, offline, no DJI lock-in.**
+
+**English** · [Українська](README.uk.md)
+
+![Field Mission Planner — spray route over a field, around a tree island](docs/banner.jpg)
+
+[![Open in browser](https://img.shields.io/badge/▶_Open_in_browser-no_install-2ea44f?style=for-the-badge)](https://tecelskyyivan-alt.github.io/ardu-field-planner/)
+[![Download APK](https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=Android%20APK&style=for-the-badge)](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest)
 
 [![tests](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Download APK](https://img.shields.io/github/v/release/tecelskyyivan-alt/ardu-field-planner?label=download)](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest)
 
----
+![Field Mission Planner: a 77 ha field between windbreaks, spray passes ready to fly](docs/screenshot.jpg)
 
-### 👋 Using this? Tell me / Користуєшся? Напиши
+## Who it is for
 
-I'm an aviation design engineer building this for real spraying
-operations. **If you cloned this repo, I'd genuinely like to hear from
-you** — it's the only way I learn whether it works outside my own field.
+You fly a **spraying drone on ArduPilot** (Pixhawk / Cube / any ArduCopter flight controller) and
+you are tired of:
 
-**Four questions I'd rather ask than "do you like it?"** — answer any
-one and it changes what I build next:
+- **Mission Planner's Auto Grid** — built for mapping, not spraying: no cut-outs, no field geofence;
+- **stitching paths by hand** around trees, ponds and power-line poles;
+- **carrying a laptop** to the field;
+- **DJI / XAG planners** that only work with their own hardware and cloud.
 
-1. **Which task in preparing a spraying mission takes the longest?**
-2. **What do you still do by hand** — in a spreadsheet, on paper, in
-   your head?
-3. **What breaks or goes wrong most often** in the field?
-4. **What have you already tried to change**, and why did it not stick?
+FMP plans the spray route on the phone you already have and flies it over MAVLink.
 
-Answer in a
-[Discussion](https://github.com/tecelskyyivan-alt/ardu-field-planner/discussions),
-an [issue](https://github.com/tecelskyyivan-alt/ardu-field-planner/issues/new),
-or by mail to **teselskyy@gmail.com** — whichever is least effort for
-you. Drone model and field size help, but a one-line answer is already
-useful.
+## What it does
 
-Я авіаційний інженер-конструктор, роблю це для реальних обприскувань.
-**Якщо ти клонував репозиторій — озвися.**
+**Plan**
+- Draw the field on a satellite map; drag vertices and the route rebuilds live.
+- **Cut-outs** for trees, ponds, buildings — the route goes **around** them and they go into the geofence.
+- **Power lines found automatically** from OpenStreetMap and cut out of the route (or draw them by hand).
+- Pass spacing = your swath width; pass angle or **auto-angle for the shortest flight**; edge margin; rounded U-turns.
+- **Terrain zones** — see where the field rises above your safe altitude before you take off.
+- **Import a whole field database from KML**, pick a parcel by tapping, merge neighbours into one field.
+- Realistic mission time: take-off, transit, passes, turns, return and landing.
 
-Чотири питання, які цікавлять більше за «чи подобається»:
+**Fly**
+- Upload over **USB cable, WiFi (ELRS backpack) or Bluetooth**, with read-back check of every waypoint.
+- Live telemetry, ARM / mode / **AUTO → pause → resume → RTL** from the app.
+- **Resume after a battery swap** from where the drone stopped.
+- **GPS jamming / spoofing alarm** — sound and vibration when satellites or position jump.
+- **Phone → drone without a laptop**: the open ELRS backpack firmware in every release lets a phone browser talk MAVLink directly.
+- No-GPS mode (VIO): home is a point on the map.
 
-1. **Яка задача в підготовці обприскування забирає найбільше часу?**
-2. **Що доводиться робити вручну** — в таблиці, на папері, в голові?
-3. **Що найчастіше ламається** або йде не так у полі?
-4. **Що ти вже намагався змінити** — і чому не прижилось?
+**Keep records**
+- Every AUTO flight is logged offline; plan-vs-actual calibrates time estimates to *your* drone.
+- Work records with hectares — export to CSV.
+- Export `.waypoints` / `.plan` / geofence `.fence` / `.geojson` / KML for Mission Planner or QGroundControl.
 
-Відповідь у Discussions, в issue або на **teselskyy@gmail.com**.
-Модель дрона й площа поля допоможуть, але й один рядок уже цінний.
+Interface in **English and Ukrainian**.
 
----
+## How it compares
 
-<!-- Tip: drop a real app screenshot at docs/screenshot.png and uncomment:
-![Screenshot](docs/screenshot.png) -->
+| | **FMP** | Mission Planner / QGC | DJI Agras / XAG |
+|---|---|---|---|
+| Spray route around cut-outs | ✅ | ❌ (mapping grid) | ✅ |
+| Power lines cut out automatically | ✅ (OSM) | ❌ | sensors in flight |
+| Geofence from the field outline | ✅ one step | manual | ✅ |
+| Runs on a phone, offline | ✅ | desktop (MP) | own remote only |
+| Works with ArduPilot | ✅ | ✅ | ❌ |
+| GPS jamming / spoofing alarm | ✅ | ❌ | not published |
+| Price | **free, open source** | free | price of the drone |
 
-> ⚠️ **SAFETY / БЕЗПЕКА — read before use.** This software plans and uploads flight
-> missions for **real spraying drones**. A mistake can crash the aircraft, spray the
-> wrong area, or cause injury and crop/property damage. It is provided **WITH NO
-> WARRANTY** (see [LICENSE](LICENSE)). **You are the pilot-in-command:** review every
-> mission in Mission Planner / QGroundControl, keep visual line-of-sight and a manual
-> override, and obey your local drone **and pesticide** regulations. Use at your own risk.
->
-> Цей софт планує й заливає польотні місії для **реальних дронів-обприскувачів**.
-> Помилка = розбитий дрон / не те поле / шкода людям чи посівам. Надається **БЕЗ ЖОДНИХ
-> ГАРАНТІЙ**. Ти — командир екіпажу: перевіряй кожну місію, тримай візуальний контакт і
-> ручний override, дотримуйся законів про дрони й пестициди. Використання на власний ризик.
+What FMP does **not** do (yet): terrain following, variable-rate application maps,
+obstacle avoidance in flight — those need sensors or are on the roadmap.
+**Engine only, no UI yet:** splitting a big field into several sorties and spray-liquid /
+tank-refill planning — the route engine can do both, the app does not ask for them yet.
 
-**Offline-first ground-control station + coverage-mission planner for ArduCopter
-agricultural spraying.** Draw a field on a satellite map → generate a boustrophedon
-(“lawnmower”) coverage route → export a mission (`.plan` / `.waypoints`) or **upload it
-straight to the drone over MAVLink** and fly it with **live telemetry**. The app and
-planning engine are self-hosted (no CDN), so it loads and plans with **no connection**.
-**Three** things do need internet, and one of them is a safety feature — know them
-before you drive to a field:
+## Get started in 3 minutes
 
-| needs internet | host | without it |
-|---|---|---|
-| satellite map | `server.arcgisonline.com` | pre-cache per field and it works offline |
-| terrain altitude-limit zones | `api.open-meteo.com` | no relief zones; the route still builds |
-| **automatic power-line (ЛЕП) detection** | `overpass-api.de`, `overpass.kumi.systems` | **no ЛЕП are found — draw the corridors by hand** |
+1. **[Open the app in your browser](https://tecelskyyivan-alt.github.io/ardu-field-planner/)** —
+   works on PC, Android and iPhone; "Install" it as an app to use offline.
+   Or install the **[Android APK](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest)**
+   (allow install from unknown sources; updates install over the old version, your fields stay).
+2. Draw your field, add cut-outs, set swath width and altitude — the route appears.
+3. **Export** the mission for Mission Planner / QGC, or **connect** and upload straight to the drone.
 
-Bilingual UI (**Українська / English**).
+Before driving to a field with no signal: press **"Save area map offline"**. Planning works
+without internet; the satellite map, terrain zones and automatic power-line search need it once.
 
-Офлайн-планувальник маршрутів покриття поля + наземна станція (GCS) для ArduCopter.
-Малюєш контур поля → «змійка» покриття → експорт місії або **пряма заливка в дрон по
-MAVLink** (кабель / WiFi-ELRS) + жива телеметрія. Рушій і застосунок працюють **без
-мережі**. Інтернету потребують **три** речі, а не одна: **супутникова мапа** (кешуй
-район завчасно), **зони обмеження висоти за рельєфом** (сітка висот з
-`api.open-meteo.com`) і — найважливіше — **автоматичний пошук ЛЕП** (Overpass / OSM).
-Без мережі маршрут будується, але рельєфні зони й ЛЕП не з'являються: **опори й дроти
-доведеться позначати вручну**. Плануй це вдома.
+| needs internet | without it |
+|---|---|
+| satellite map (`server.arcgisonline.com`) | pre-cache the area — then it works offline |
+| terrain zones (`api.open-meteo.com`) | no terrain zones; the route still builds |
+| **automatic power-line search** (OpenStreetMap: `overpass-api.de`, `overpass.kumi.systems`) | **no lines found — draw them by hand** |
 
-## Platforms / Платформи
+## Platforms
 
 | | |
 |---|---|
-| 🖥️ **Desktop (Windows / macOS)** | native window on Qt / QtWebEngine (`app_qt.py`) |
-| 📱 **Android** | native APK (`android/`) — USB-serial to the FC + MAVLink over WiFi (ELRS backpack) |
-| 🍎 **iOS** | native shell (`ios/`) — MAVLink over WiFi |
-| 🌐 **Browser / PWA** | any Chromium/Safari; install as an offline PWA |
+| 🌐 **Browser** (PC, Android, iPhone) | [open now](https://tecelskyyivan-alt.github.io/ardu-field-planner/), installable, works offline |
+| 📱 **Android** | [APK](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest) — USB to the flight controller, WiFi, Bluetooth |
+| 🍎 **iPhone** | browser version + ELRS backpack over WiFi |
+| 🖥️ **Windows / macOS desktop** | from source — see [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 
-## Features / Можливості
+## ⚠️ Safety
 
-- 🛰️ **Satellite map** (Google / Esri) with layer switching and place/border labels;
-  **save tiles offline** for a field so it works later with no signal.
-- ✏️ **Field contour** — draw a polygon, drag vertices (route rebuilds live). Computed
-  locally — no cloud / no AI required.
-- 🌳 **Obstacles (cut-outs)** — draw polygons over trees / roads / ponds; cut from the
-  route **and** added to the geofence; saved with the project.
-- 🔁 **Coverage** — pass spacing, angle (or **auto-angle** = least mission time / least
-  spray overlap), edge margin, waypoint de-clustering.
-- 🔄 **Rounded turns** — the copter flies a smooth U-turn at each pass end via the
-  autopilot’s `WP_RADIUS_M` (= spacing / 2); no extra waypoints.
-- 🔋 **Split into sorties** — **N equal-area** sections or by battery time.
-  ⚠️ **Engine only, no UI yet.** `build_route` honours `split.mode` = `n_area` /
-  `battery_time`, but the app sends neither, and the sector-line drawing tool was
-  removed, so in the shipped app every plan is a single flight. Reachable by calling
-  the engine directly; see `tests/test_split_budget.py`.
-- ⏱️ **Realistic mission time** — take-off + transit + cruise + turns + RTL + landing.
-- 📈 **Flight log + calibration** — every real AUTO flight is logged offline (IndexedDB);
-  plan-vs-actual calibrates the time / battery estimate to *your* drone.
-- 💧 **Spray-liquid planning** — rate (l/ha) × sprayed area → working liquid + tank refills.
-- 🚁 **Live flight (MAVLink)** — mission upload with read-back verify, telemetry/HUD, live
-  “time to finish / to landing”, ARM / mode / AUTO / RTL, GPS jamming/spoofing guard.
-  - **Over cable (USB serial)** and **over WiFi** (ELRS backpack, UDP). The WiFi link and
-    mission upload are hardened for the narrow/lossy ELRS uplink (proactive re-send,
-    ArduPilot `MISSION_ITEM_INT` **and** INAV `MISSION_ITEM` dialects).
-    Recommended: put the backpack on a shared WiFi (router, LTE modem, hotspot) so internet and MAVLink work
-    at once, see [docs/elrs-backpack-home-wifi.md](docs/elrs-backpack-home-wifi.md).
-- 💾 **Export** — `.waypoints` (QGC WPL 110), `.plan`, geofence `.plan` / `.fence`, `.geojson`; **KML** import/export.
-- 🗺️ **Multi-field KML import** — load a whole GIS field database (named parcels with
-  cut-outs & areas); tap a contour on the map to pick it, or select several adjacent
-  parcels and **merge** them into one field (gaps/field-roads closed); recent imports
-  kept for one-tap reload.
-- 📁 **Projects** — field + parameters + cut-outs; auto-restore of the last field & settings.
-- 🌍 **UA / EN** language toggle (persisted).
+This software plans and uploads missions for **real spraying drones**. A mistake can crash the
+aircraft, spray the wrong area, or injure people and damage crops. It comes **with no warranty**
+([LICENSE](LICENSE)). **You are the pilot-in-command:** check every mission before flight, keep
+visual line-of-sight and manual override, and follow your local drone **and pesticide** rules.
 
-## Download / Завантажити
+## Tell me how it works for you
 
-**📥 Ready-to-use builds are on the [Releases page](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest).**
+I'm an aviation design engineer and I build this for real spraying work. One answer helps more
+than a star — **what part of preparing a spray mission takes you the longest?**
 
-- **Android (phone/tablet):** download **`FieldMissionPlanner-….apk`** from the latest release →
-  open it on the device → allow *install from unknown sources* → open the app.
-  *(Готові збірки — на сторінці [Releases](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases/latest): завантаж `.apk`, відкрий на телефоні, дозволь встановлення з невідомих джерел.)*
-- **PC (Windows / macOS) & browser:** no prebuilt binary yet — run from source (below). Then open
-  the native desktop window (`python app_qt.py`) or the browser UI (`python serve.py`).
-- **iOS:** build from `ios/` with Xcode (Apple does not allow installing apps from a website).
+[Discussions](https://github.com/tecelskyyivan-alt/ardu-field-planner/discussions) ·
+[Report a problem](https://github.com/tecelskyyivan-alt/ardu-field-planner/issues/new/choose) ·
+**teselskyy@gmail.com**
 
-## Build from source / Встановлення з коду
-
-Requires **Python 3.11+** (desktop / browser modes).
-
-```bash
-git clone https://github.com/tecelskyyivan-alt/ardu-field-planner
-cd ardu-field-planner
-python3 -m venv .venv
-# macOS / Linux:  source .venv/bin/activate
-# Windows:        .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-Leaflet and the planning engine are self-hosted (no CDN), so the app loads and plans
-with no connection; the satellite map still needs internet unless you pre-cache the area.
-
-## Run / Запуск
-
-**Native desktop (recommended)** — a Qt / QtWebEngine window:
-```bash
-python app_qt.py
-```
-The HTTP backend (`serve.py`) runs on a background thread; the UI is served at
-`http://127.0.0.1:8731/`.
-
-**Browser mode:**
-```bash
-python serve.py      # then open the printed http://127.0.0.1:<port>/
-```
-
-**Android / iOS** — build the native app from `android/` (Gradle, JDK 17, Android SDK)
-or `ios/` (Xcode). See `THIRD_PARTY.md`.
-
-## How to use / Як користуватись
-
-1. **Set the field** — draw the polygon and edit its vertices.
-2. **Obstacles** (optional) — draw obstacle polygons to cut from the coverage.
-3. **Parameters** — altitude, spacing, angle (or auto-angle), margin, speed, battery,
-   l/ha + tank (for liquid planning), rounded turns.
-4. **Build route** — the coverage snake + statistics.
-5. **Export or upload** — save `.waypoints` / `.plan` (open in Mission Planner / QGC,
-   check the home point, upload) **or** connect over MAVLink (cable / WiFi) and upload
-   directly, then fly with live telemetry.
-
-## Architecture / Архітектура
-
-```
-app_qt.py            # native window (PySide6 / QtWebEngine) + serve.start()
-serve.py             # stdlib HTTP server (:8731) + /api/* routing
-backend/
-  api.py             # bridge: build_route (time / sections / anchor / calibration), export, MAVLink
-  coverage.py        # boustrophedon snake, cut-outs, margin, auto-angle, areas, mission time, splits
-  mission.py         # export .waypoints / .plan / geofence / .fence / .geojson
-  mavlink_link.py    # live MAVLink over cable (COM) / UDP / TCP: telemetry + mission upload
-  geo.py, flight_calib.py
-web-stable/          # Leaflet + Leaflet.draw frontend (index.html · app.js · i18n.js · mav/*)
-android/  ios/       # native shells (USB-serial + MAVLink-over-WiFi bridges)
-```
-
-## Tests / Тести
-
-```bash
-python test_core.py        # coverage / mission / geo
-python test_features.py    # margin, auto-angle, cut-outs, liquid, export
-python test_ui.py          # app.js element ids <-> index.html
-python test_serve.py       # HTTP layer
-python test_mavlink.py     # MAVLink over a fake UDP drone
-python test_sitl.py        # E2E against a real ArduCopter SITL (upload -> verify -> download)
-```
-
-## Mission format / Формат місії
-
-- WP0 = HOME (field centroid, absolute frame) — the GCS overwrites it with the real home on upload.
-- Take-off `MAV_CMD_NAV_TAKEOFF` (GLOBAL_RELATIVE_ALT); waypoints `MAV_CMD_NAV_WAYPOINT`;
-  end `MAV_CMD_NAV_RETURN_TO_LAUNCH` (if RTL).
-- Geofence: an inclusion polygon of the field + one exclusion polygon per obstacle.
+Drone model and field size help, but a one-line answer is already useful.
 
 ---
 
-## License / Ліцензія
-
-**GPLv3** — see [LICENSE](LICENSE). Third-party components & attribution: [THIRD_PARTY.md](THIRD_PARTY.md).
-
-## Security / Безпека
-
-Vulnerability & safety policy — [SECURITY.md](SECURITY.md).
+[Changelog / releases](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases) ·
+[Development](docs/DEVELOPMENT.md) ·
+[ELRS backpack setup](docs/elrs-backpack-browser.md) ·
+[Security](SECURITY.md) ·
+[Third-party](THIRD_PARTY.md) ·
+License **GPLv3**

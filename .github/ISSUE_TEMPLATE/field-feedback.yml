@@ -1,0 +1,24 @@
+name: 🌾 Field feedback / Відгук з поля
+description: Tell how FMP works on your fields — this decides what gets built next
+labels: [feedback]
+body:
+  - type: textarea
+    id: longest
+    attributes:
+      label: Which part of preparing a spray mission takes you the longest? / Що в підготовці обприскування забирає найбільше часу?
+    validations:
+      required: true
+  - type: textarea
+    id: manual
+    attributes:
+      label: What do you still do by hand? / Що досі робиш вручну?
+      description: Spreadsheet, paper, in your head / У таблиці, на папері, в голові
+  - type: textarea
+    id: breaks
+    attributes:
+      label: What goes wrong most often in the field? / Що найчастіше йде не так у полі?
+  - type: input
+    id: setup
+    attributes:
+      label: Drone & typical field size / Дрон і типова площа поля
+      placeholder: e.g. 30 L hexa, 20–80 ha
