@@ -18,7 +18,7 @@
      || /FMPiOS/.test(navigator.userAgent || ""));
   // Visible build tag so you can confirm an update actually landed (the APK does
   // NOT auto-update — you must reinstall it; the PWA updates on reopen).
-  const APP_VERSION = "2.5.97";
+  const APP_VERSION = "2.5.98";
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
@@ -3168,7 +3168,11 @@
               appLog("backpack relay: " + transport.url);
             }
             catch (e) {
-              return { ok: false, error: "Бекпак не відповів: " + ((e && e.message) || e) + " Браузер на телефоні не приймає UDP — потрібна прошивка бекпака з WebSocket для FMP (docs/elrs-backpack-browser.md), телефон у тій самій WiFi, що й бекпак, на пульті Backpack → Telemetry → WiFi. Якщо бекпак не знайшовся сам — впиши його IP в «Адреса» (запам'ятається). Або підключайся із застосунку FMP (Android APK або iOS)." };
+              // Can't tell a stock backpack from no backpack here (the relay is cross-origin):
+              // either way the fix is the FMP backpack firmware — show how, with the download.
+              const help = $("bp-fw-help"); if (help) { help.hidden = false; try { help.scrollIntoView({ block: "nearest" }); } catch (e2) {} }
+              appLog("backpack relay: " + ((e && e.message) || e) + " → показано підказку про прошивку бекпака");
+              return { ok: false, error: "Бекпак не відповів. Онови його прошивкою FMP — кнопка й кроки під «Підключити». Якщо вже прошито — впиши IP бекпака в «Адреса»." };
             }
           } else {
           const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, BRIDGE_PAGE ? location.hostname : "127.0.0.1");
@@ -3779,6 +3783,7 @@
           }
         } catch (e) { appLog("AndroidNotify.start failed: " + e); }
         wakeLockOn();
+        if ($("bp-fw-help")) $("bp-fw-help").hidden = true;
         $("mav-connect").disabled = true;
         $("mav-disconnect").disabled = false;
         $("mav-upload").disabled = false;
