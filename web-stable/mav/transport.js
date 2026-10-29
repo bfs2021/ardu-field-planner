@@ -30,29 +30,61 @@
   // Chrome blocks a public page from reaching 127.0.0.1, but not from opening it as a
   // popup: relay.html served by scripts/udp_ws_bridge.py holds the WebSocket and
   // passes bytes through postMessage. Must be called inside the click (popup blocker).
-  let relayWin = null;
+  let relayWin = null, relayOrigin = null;
   // A relay window left open by an earlier page load (or connect) announces itself every
   // second; reusing it means no new tab/window and no jump to it.
-  function findRelay(origin, ms) {
+  function findRelay(origins, ms) {
     return new Promise((resolve) => {
       const timer = setTimeout(() => { window.removeEventListener("message", onHere); resolve(null); }, ms);
       function onHere(ev) {
-        if (ev.origin !== origin || !ev.data || ev.data.fmp !== "here") return;
-        clearTimeout(timer); window.removeEventListener("message", onHere); resolve(ev.source);
+        if (!origins.includes(ev.origin) || !ev.data || ev.data.fmp !== "here") return;
+        clearTimeout(timer); window.removeEventListener("message", onHere); resolve({ win: ev.source, origin: ev.origin });
       }
       window.addEventListener("message", onHere);
     });
   }
-  async function openRelay(pageUrl) {
-    const origin = new URL(pageUrl).origin;
-    if (!relayWin || relayWin.closed) relayWin = await findRelay(origin, 1200);
-    // Small, in the bottom-right corner; FMP takes the focus back once the link is up.
-    const left = (screen.availLeft || 0) + screen.availWidth - 340, top = (screen.availTop || 0) + screen.availHeight - 150;
-    if (!relayWin || relayWin.closed)
-      relayWin = window.open(pageUrl, "fmp-udp-relay", "popup,width=320,height=110,left=" + left + ",top=" + top);
-    const w = relayWin;
-    if (!w) throw new Error("Браузер заблокував вікно моста — дозволь спливні вікна для цього сайту.");
+  // hello -> ready from the relay page in `w` (served from `origin`), or reject after `ms`.
+  function relayHandshake(w, origin, ms, label) {
+    return new Promise((resolve, reject) => {
+      const send = () => { try { w.postMessage({ fmp: "hello" }, origin); } catch (e) {} };
+      const hello = setInterval(send, 300); send();
+      const timer = setTimeout(() => { done(); reject(new Error("Міст не відповів (вікно " + label + ").")); }, ms);
+      function onReady(ev) { if (ev.origin === origin && ev.source === w && ev.data && ev.data.fmp === "ready") { done(); resolve(); } }
+      function done() { clearInterval(hello); clearTimeout(timer); window.removeEventListener("message", onReady); }
+      window.addEventListener("message", onReady);
+    });
+  }
+  // pageUrls: one relay page, or candidates tried in order in the SAME window (one popup per
+  // click; the opener may navigate it on). msPerTry: how long each candidate gets.
+  // The transport's `url` is the candidate that answered.
+  async function openRelay(pageUrls, msPerTry) {
+    const urls = [].concat(pageUrls), origins = urls.map((u) => new URL(u).origin);
+    const ms = msPerTry || 8000;
+    let w = null, url = null;
+    if (!relayWin || relayWin.closed || !origins.includes(relayOrigin)) {
+      const f = await findRelay(origins, 1200);
+      if (f) { relayWin = f.win; relayOrigin = f.origin; }
+    }
+    if (relayWin && !relayWin.closed && origins.includes(relayOrigin)) {
+      try { await relayHandshake(relayWin, relayOrigin, ms, relayOrigin); w = relayWin; url = urls[origins.indexOf(relayOrigin)]; }
+      catch (e) {}
+    }
+    let err = null;
+    for (let i = 0; !w && i < urls.length; i++) {
+      if (!relayWin || relayWin.closed) {
+        // Small, in the bottom-right corner; FMP takes the focus back once the link is up.
+        const left = (screen.availLeft || 0) + screen.availWidth - 340, top = (screen.availTop || 0) + screen.availHeight - 150;
+        relayWin = window.open(urls[i], "fmp-udp-relay", "popup,width=320,height=110,left=" + left + ",top=" + top);
+        if (!relayWin) throw new Error("Браузер заблокував вікно моста — дозволь спливні вікна для цього сайту.");
+      } else relayWin.location.href = urls[i];
+      relayOrigin = origins[i];
+      try { await relayHandshake(relayWin, origins[i], ms, urls[i]); w = relayWin; url = urls[i]; }
+      catch (e) { err = e; }
+    }
+    if (!w) throw (urls.length > 1 ? new Error("Міст не відповів (вікно " + urls.join(", ") + ").") : err);
+    const origin = relayOrigin;
     const t = {
+      url,
       ondata: null,
       write(bytes) { if (!w.closed) w.postMessage({ fmp: "tx", data: bytes }, origin); },
       close() { window.removeEventListener("message", onMsg); },   // the window stays for the next connect
@@ -61,13 +93,6 @@
       if (ev.origin !== origin || ev.source !== w || !ev.data) return;
       if (ev.data.fmp === "rx" && t.ondata) t.ondata(new Uint8Array(ev.data.data));
     }
-    await new Promise((resolve, reject) => {
-      const hello = setInterval(() => { try { w.postMessage({ fmp: "hello" }, origin); } catch (e) {} }, 300);
-      const timer = setTimeout(() => { done(); reject(new Error("Міст не відповів (вікно " + pageUrl + ").")); }, 8000);
-      function onReady(ev) { if (ev.origin === origin && ev.source === w && ev.data && ev.data.fmp === "ready") { done(); resolve(); } }
-      function done() { clearInterval(hello); clearTimeout(timer); window.removeEventListener("message", onReady); }
-      window.addEventListener("message", onReady);
-    });
     window.addEventListener("message", onMsg);
     try { window.focus(); } catch (e) {}
     return t;

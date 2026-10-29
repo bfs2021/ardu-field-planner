@@ -18,7 +18,7 @@
      || /FMPiOS/.test(navigator.userAgent || ""));
   // Visible build tag so you can confirm an update actually landed (the APK does
   // NOT auto-update — you must reinstall it; the PWA updates on reopen).
-  const APP_VERSION = "2.5.95";
+  const APP_VERSION = "2.5.96";
   // The deployed app on the VPS — used by the APK (different origin, native fetch)
   // to check for / download updates. The PWA/desktop use same-origin paths.
   const VPS_BASE = "";  // self-host: optional external server for logs/updates; empty = same-origin only
@@ -3109,12 +3109,19 @@
           // or FMP opened from a bridge on a computer (--lan), which then is "listen on all".
           // Without a computer, the backpack itself must speak WebSocket (backpack firmware with
           // fmp-relay.html, docs/elrs-backpack-browser.md): its relay window, like the bridge's.
-          // Empty address = the backpack's mDNS name (its own AP and Home WiFi alike).
+          // Empty address = find it: the last backpack that answered, its mDNS name (Home WiFi),
+          // then its own access point. The one that answers is remembered.
           if (!BRIDGE_PAGE && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "")) {
-            const host = conn.slice(4).replace(/:\d+$/, "").replace(/^(0\.0\.0\.0)?$/, "elrs_txbp.local");
-            try { transport = await MAV_TRANSPORT.openRelay("http://" + host + "/fmp-relay.html"); }
+            const typed = conn.slice(4).replace(/:\d+$/, "").replace(/^0\.0\.0\.0$/, "");
+            let saved = ""; try { saved = localStorage.getItem("fmp_backpack_host") || ""; } catch (e) {}
+            const hosts = typed ? [typed] : [...new Set([saved, "elrs_txbp.local", "10.0.0.1"].filter(Boolean))];
+            try {
+              transport = await MAV_TRANSPORT.openRelay(hosts.map((h) => "http://" + h + "/fmp-relay.html"), typed ? 8000 : 5000);
+              try { localStorage.setItem("fmp_backpack_host", transport.url.split("/")[2]); } catch (e) {}
+              appLog("backpack relay: " + transport.url);
+            }
             catch (e) {
-              return { ok: false, error: "Бекпак не відповів: " + ((e && e.message) || e) + " Браузер на телефоні не приймає UDP — потрібна прошивка бекпака з WebSocket для FMP (docs/elrs-backpack-browser.md), телефон у тій самій WiFi, що й бекпак, на пульті Backpack → Telemetry → WiFi. Якщо ім'я не знаходиться — впиши IP бекпака в «Адреса». Або підключайся із застосунку FMP (Android APK або iOS)." };
+              return { ok: false, error: "Бекпак не відповів: " + ((e && e.message) || e) + " Браузер на телефоні не приймає UDP — потрібна прошивка бекпака з WebSocket для FMP (docs/elrs-backpack-browser.md), телефон у тій самій WiFi, що й бекпак, на пульті Backpack → Telemetry → WiFi. Якщо бекпак не знайшовся сам — впиши його IP в «Адреса» (запам'ятається). Або підключайся із застосунку FMP (Android APK або iOS)." };
             }
           } else {
           const addr = conn.slice(4).replace(/^0\.0\.0\.0(?=:|$)/, BRIDGE_PAGE ? location.hostname : "127.0.0.1");
