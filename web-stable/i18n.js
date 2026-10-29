@@ -24,9 +24,6 @@ window.FMP_TR = {
   "Висота польоту (над точкою зльоту), м": "Flight altitude (above take-off), m",
   "Швидкість, м/с": "Speed, m/s",
   // Spray planning fields (issue #5) — added 2026-08-17.
-  "Норма внесення, л/га": "Application rate, l/ha",
-  "Об'єм бака, л": "Tank volume, l",
-  "Ємність батареї, хв": "Battery endurance, min",
   "Повернення (RTL) в кінці місії": "Return (RTL) at mission end",
   "Круглий розворот (діаметр = крок гонів)": "Rounded turn (diameter = pass spacing)",
   "Дрон робить круглий розворот вкінці кожного гону радіусом «крок / 2» — виставляється автопілоту при заливці по кабелю (WP_RADIUS_M). Точки маршруту не додаються; на більшому радіусі дрон трохи зрізає торці гонів.":
@@ -389,7 +386,6 @@ Object.assign(window.FMP_TR, {
 
 Object.assign(window.FMP_TR, {
   "Прогалини": "Gaps",
-  "Фактична ширина факела, м (порожньо = крок)": "Actual boom width, m (empty = spacing)",
 });
 
 // ---- release-hygiene: EN entries missing for release 2.5.72 features (audit fix wave) ----
@@ -482,7 +478,6 @@ Object.assign(window.FMP_TR, {
     "Pause holds the drone on the route at altitude — resuming is safe.",
   "Продовжувати місію після заміни батареї": "Resume the mission after a battery swap",
   "Мова / Language": "Language / Мова",
-  "= крок": "= spacing",
 });
 
 // ---- «Додаток» tab, rebuilt as one card per platform ------------------------

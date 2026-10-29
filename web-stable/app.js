@@ -1460,7 +1460,6 @@
     const params = {
       boundary,
       spacing: parseFloat($("spacing").value),
-      boom: (parseFloat(($("boom") || {}).value) || 0),   // #9: physical spray width (0/empty → engine uses spacing)
       angle: parseFloat($("angle").value),
       auto_angle: $("auto_angle").checked,
       // Auto-angle = FULL COVERAGE first, then minimum TIME (passes along the
@@ -2189,7 +2188,6 @@
   function collectParams() {
     return {
       spacing: parseFloat($("spacing").value),
-      boom: parseFloat($("boom").value) || "",
       angle: parseFloat($("angle").value),
       auto_angle: $("auto_angle").checked,
       margin: parseFloat($("margin").value) || 0,
@@ -2204,12 +2202,6 @@
       plane_turn: !!($("round-turn") && $("round-turn").checked && isPlaneVehicle()),
       // #12p3: opt-in geofence upload — persisted like the neighbours, default OFF.
       fence_upload: $("fence-upload") ? $("fence-upload").checked : false,
-      // Spray planning (issue #5): backend/api.py has computed working-solution
-      // volume and refills since July, but the UI never sent these. Empty field
-      // -> 0 -> the backend skips the calculation, i.e. previous behaviour.
-      flow_lha: parseFloat($("flow_lha") && $("flow_lha").value) || 0,
-      tank_l: parseFloat($("tank_l") && $("tank_l").value) || 0,
-      battery_min: parseFloat($("battery_min") && $("battery_min").value) || 0,
     };
   }
   // A plane is a plane even if you plan the route BEFORE connecting: remember the
@@ -2249,7 +2241,7 @@
   function applyParams(p) {
     if (!p) return;
     const set = (id, v) => { if (v !== undefined && v !== null && $(id)) $(id).value = v; };
-    set("spacing", p.spacing); set("boom", p.boom); set("angle", p.angle); set("margin", p.margin);
+    set("spacing", p.spacing); set("angle", p.angle); set("margin", p.margin);
     set("alt", p.alt); set("speed", p.speed);
     if ($("auto_angle")) $("auto_angle").checked = !!p.auto_angle;
     if ($("rtl")) $("rtl").checked = p.rtl !== false;
