@@ -1998,6 +1998,7 @@
   if ($("panel-toggle")) $("panel-toggle").addEventListener("click",
     () => setPanel(!document.body.classList.contains("panel-open")));
   if ($("panel-scrim")) $("panel-scrim").addEventListener("click", () => setPanel(false));
+  if ($("bp-fw-close")) $("bp-fw-close").addEventListener("click", () => { $("bp-fw-help").hidden = true; });
   if ($("panel-close")) $("panel-close").addEventListener("click", () => setPanel(false));
   // Swipe the panel LEFT to close it. We DO NOT move the panel with the finger — an
   // interrupted swipe (system back-gesture, lost touchend) would otherwise leave the
@@ -3820,6 +3821,10 @@
   // skipped (port indices don't survive a reload). Guarded by mavConnecting so it can't race a manual tap.
   function bootAutoReconnect(ss) {
     if (!ss || !ss.wasConnected) return;
+    // Browser: no auto-connect on open — a closed tab never says "disconnected", so every later
+    // visit tried to reach a drone that isn't there (Ivan 30.10). The apps keep it: they come back
+    // after the OS killed them mid-flight.
+    if (!IS_ANDROID && !IS_IOS && !IS_QT) return;
     const conn = ss.connType;
     if (conn === "ble") {
       if (!(window.AndroidBle && window.__fmpBleAutoReconnect)) return;

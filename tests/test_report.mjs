@@ -211,5 +211,31 @@ vm.runInNewContext(src, sandbox5, { filename: "app.js", timeout: 30000 });
 await REAL["mav-connect"].listeners.click();
 check("phone on a --lan bridge page: WebSocket to that bridge", lanUrls[0] === "ws://192.168.0.103:14550");
 
+// ✕ on the backpack-firmware card hides it.
+REAL["bp-fw-close"] = realEl();
+vm.runInNewContext(src, sandbox4, { filename: "app.js", timeout: 30000 });
+REAL["bp-fw-help"].hidden = false;
+REAL["bp-fw-close"].listeners.click();
+check("✕ closes the backpack-firmware card", REAL["bp-fw-help"].hidden === true);
+
+// Opening the site must not auto-connect (a closed tab leaves wasConnected=true) — the apps still do.
+const bootConn = [];
+storage.set("fmp_session", JSON.stringify({ wasConnected: true, connType: "udp", addr: "" }));
+for (const id of ["mav-connect", "mav-conn-type", "mav-address", "mav-baud", "msg"]) REAL[id] = realEl();
+REAL["mav-conn-type"].value = "udp"; REAL["mav-conn-type"].querySelector = () => ({ remove() {} }); REAL["mav-address"].value = ""; REAL["mav-baud"].value = "auto";
+const sbWeb = { ...sandbox3, MAV_TRANSPORT: { serialSupported: () => false,
+  openWebSocket: async (u) => { bootConn.push("web " + u); throw 0; }, openRelay: async (u) => { bootConn.push("web " + u); throw 0; } } };
+sbWeb.window = sbWeb; sbWeb.globalThis = sbWeb; sbWeb.self = sbWeb;
+vm.runInNewContext(src, sbWeb, { filename: "app.js", timeout: 30000 });
+await new Promise((r) => setTimeout(r, 1800));
+check("browser: opening the site with a stale session does NOT connect", bootConn.length === 0);
+const sbApk = { ...sbWeb, AndroidSerial: {}, AndroidUdp: {},
+  MAV_TRANSPORT: { serialSupported: () => false, openAndroidUdp: async (port) => { bootConn.push("apk udp " + port); throw 0; } } };
+sbApk.window = sbApk; sbApk.globalThis = sbApk; sbApk.self = sbApk;
+vm.runInNewContext(src, sbApk, { filename: "app.js", timeout: 30000 });
+await new Promise((r) => setTimeout(r, 1800));
+check("APK: still reconnects after being reopened", bootConn.some((c) => c.startsWith("apk udp")));
+storage.delete("fmp_session");
+
 console.log("\nRESULT: " + (failed ? failed + " FAILURE(S)" : "ALL CHECKS PASSED"));
 process.exit(failed ? 1 : 0);

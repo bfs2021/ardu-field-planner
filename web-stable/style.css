@@ -677,9 +677,11 @@ button.active { background: var(--accent-fill); color: #fff; border-color: var(-
 }
 
 /* Phone browser couldn't reach the backpack: how to flash the FMP firmware. */
-.bp-help { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 10px; font-size: 12.5px; line-height: 1.4; }
+.bp-help { position: relative; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 10px; font-size: 12.5px; line-height: 1.4; }
 .bp-help > b { color: var(--warn); }
 .bp-help p { margin: 6px 0; }
 .bp-help ol { margin: 6px 0 4px; padding-left: 18px; }
 .bp-help li { margin: 3px 0; }
 .bp-help-btn { display: block; margin: 8px 0; padding: 9px 12px; border-radius: 8px; text-align: center; font-weight: 700; text-decoration: none; background: var(--warn); color: #10151b; }
+.bp-help-x { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; padding: 0; margin: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-dim); font-size: 16px; line-height: 32px; }
+.bp-help > b { display: block; padding-right: 30px; }

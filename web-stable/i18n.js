@@ -64,6 +64,7 @@ window.FMP_TR = {
   "UDP (мережа / SITL)": "UDP (network / SITL)",
   "Адреса (host:port) — авто": "Address (host:port) — auto",
   "авто: 0.0.0.0:14550": "auto: 0.0.0.0:14550",
+  "Закрити пораду": "Close the tip",
   "Бекпак не відповів. Онови його прошивкою FMP — кнопка й кроки під «Підключити». Якщо вже прошито — впиши IP бекпака в «Адреса».": "The backpack didn't answer. Flash it with the FMP firmware — button and steps under «Connect». Already flashed? Type the backpack's IP into «Address».",
   "Онови прошивку бекпака": "Update the backpack firmware",
   "Браузер на телефоні з'єднується з дроном лише через бекпак ELRS із прошивкою FMP: стокова дає тільки UDP, а браузер його не вміє.": "A phone browser reaches the drone only through an ELRS backpack with the FMP firmware: the stock one speaks only UDP, which a browser can't.",
