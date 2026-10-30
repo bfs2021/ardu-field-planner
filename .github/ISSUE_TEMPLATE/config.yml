@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: ▶ Open the app in your browser / Відкрити застосунок
+    url: https://tecelskyyivan-alt.github.io/ardu-field-planner/
+    about: No install needed / Без встановлення
+  - name: 💬 Questions & ideas / Питання та ідеї
+    url: https://github.com/tecelskyyivan-alt/ardu-field-planner/discussions
+    about: Ask, share your field experience / Спитай або розкажи про своє поле

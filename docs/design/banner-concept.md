@@ -1,0 +1,11 @@
+# Survey Light
+
+**Philosophy.** The earth seen from above is already a drawing: fields are planes of colour, windbreaks are ruled lines, a road is a single confident stroke. Survey Light treats that found geometry as raw material and lays one quiet, exact system over it — a measured line that returns, returns, returns. The work lives in the tension between the warm, irregular ground and the cold precision of the instrument laid on top. Nothing is decorative; every mark is a measurement, placed with the meticulous care of a cartographer finishing a sheet by hand.
+
+**Space and form.** The canvas is a long horizon read from left to right: darkness and stillness first, then the land rising into light. Form arrives as one bounded plane and the disciplined parallels inside it. Turns are perfect arcs of a single radius, never improvised. Generous emptiness surrounds the instrument so the eye understands it is precise before it understands what it is — the product of painstaking alignment, every vertex considered.
+
+**Colour and material.** Ground in low golden light — ochre, olive, deep shadow green — muted until it reads as paper rather than photograph. Against it, only two instrument colours: a cool electric blue for the path and a pale signal green for the boundary, with a single warm point marking an end. The palette is deliberately starved so that each instrument line carries full weight. Calibrated like a print proof, with master-level restraint.
+
+**Scale and rhythm.** Rhythm comes from repetition at a fixed interval — the beat of evenly spaced passes — echoed faintly by tick marks along an edge, a scale bar, small coordinate notations. These whisper that the image was measured, not illustrated. Scale is honest: thin lines, small marks, one large word-mass. Rhythm accumulates through patient repetition and rewards a second look.
+
+**Hierarchy.** One name, set large and calm; one short line beneath; everything else is marginalia in thin, clinical type. Text never competes with the land and never touches the drawing. The finished piece should feel like a plate from a surveyor's atlas produced by someone at the very top of their craft — crisp, quiet, unmistakably deliberate.
