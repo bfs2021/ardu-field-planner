@@ -116,6 +116,7 @@ Drone model and field size help, but a one-line answer is already useful.
 
 [![tests](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml) ·
 [Changelog / releases](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases) ·
+[Contributing](CONTRIBUTING.md) ·
 [Development](docs/DEVELOPMENT.md) ·
 [ELRS backpack setup](docs/elrs-backpack-browser.md) ·
 [Security](SECURITY.md) ·

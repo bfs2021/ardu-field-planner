@@ -116,6 +116,7 @@ FMP планує маршрут на телефоні, який у тебе вж
 
 [![tests](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/tecelskyyivan-alt/ardu-field-planner/actions/workflows/tests.yml) ·
 [Журнал змін / релізи](https://github.com/tecelskyyivan-alt/ardu-field-planner/releases) ·
+[Як долучитися](CONTRIBUTING.md#українською) ·
 [Розробка](docs/DEVELOPMENT.md) ·
 [Налаштування ELRS-бекпака](docs/elrs-backpack-browser.md) ·
 [Безпека](SECURITY.md) ·
